@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FWMSH Museum School Registration</title>
+
+    <!-- Bootstrap -->
+    <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="md5/js/md5.min.js"></script>
+    <script>
+      var detailID = null;
+
+      function decode ( json )
+      {
+         decodedJSON = JSON.parse ( json );
+         for ( i = 0 ; i < decodedJSON.length ; i ++ )
+         {
+            switch ( decodedJSON [ i ] [ 0 ] )
+            {
+               case "HTML": $ ( "#" + decodedJSON [ i ] [ 1 ] ).html ( decodedJSON [ i ] [ 2 ] );break;
+               case "SCRIPT": eval ( decodedJSON [ i ] [ 1 ] );break;
+            }
+         }
+      }
+
+      function register()
+      {
+         if ( $ ( "#password1" ).val() != $ ( "#password2" ).val() )
+         {
+            alert ( "Your passwords don't match!" );
+            return;
+         }
+
+         obj = new Object();
+         obj.action = "REGISTER";
+         obj.firstName = $ ( "#firstName" ).val();
+         obj.lastName = $ ( "#lastName" ).val();
+         obj.email = $ ( "#email" ).val();
+         obj.address = $ ( "#address" ).val();
+         obj.city = $ ( "#city" ).val();
+         obj.state = $ ( "#state" ).val();
+         obj.zip = $ ( "#zip" ).val();
+         obj.homePhone = $ ( "#homePhone" ).val();
+         obj.workPhone = $ ( "#workPhone" ).val();
+         obj.cellPhone = $ ( "#cellPhone" ).val();
+         obj.text = $ ( "#textsOK" ).val();
+         obj.password = md5 ( $ ( "#password1" ).val() );
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );         
+      }
+
+    </script>
+
+    <style>
+       .flash {
+         -moz-animation: flash 1s ease-out;
+         -moz-animation-iteration-count: infinite;
+
+         -webkit-animation: flash 1s ease-out;
+         -webkit-animation-iteration-count: infinite;
+
+         -ms-animation: flash 1s ease-out;
+         -ms-animation-iteration-count: infinite;
+       }
+
+       @-webkit-keyframes flash {
+           0% { background-color: none; }
+           50% { background-color: #fbf8b2; }
+           100% { background-color: none; }
+       }
+
+       @-moz-keyframes flash {
+           0% { background-color: none; }
+           50% { background-color: #fbf8b2; }
+           100% { background-color: none; }
+       }
+
+       @-ms-keyframes flash {
+           0% { background-color: none; }
+           50% { background-color: #fbf8b2; }
+           100% { background-color: none; }
+       }
+    </style>
+  </head>
+  <body id='body'> 
+    <h1>New User Registration</h1>
+    <div class='well'>Welcome to the Museum School class registration website!  Please register below with <b>your</b> info.  You'll add children after you login</div>
+    <div class='container-fluid'>
+       <h4>Contact Info</h4>
+       <div class='row'>
+          <div class='col-md-2'>First name<br><input type='text' id='firstName' class='form-control'></div>
+          <div class='col-md-2'>Last name<br><input type='text' id='lastName' class='form-control'></div>
+          <div class='col-md-2'>E-Mail<br><input type='email' id='email' class='form-control'></div>
+       </div>
+       <h4>Address</h4>
+       <div class='row'>
+          <div class='col-md-6'>Address<br><input type='text' id='address' class='form-control'></div>
+       </div>
+       <div class='row'>
+          <div class='col-md-2'>City<br><input type='text' id='city' class='form-control'></div>
+          <div class='col-md-2'>State<br><input type='text' id='state' class='form-control'></div>
+          <div class='col-md-2'>Zip<br><input type='text' id='zip' class='form-control'></div>
+       </div>
+       <h4>Phone Numbers</h4>
+       <div class='row'>
+          <div class='col-md-2'>Home Phone<br><input type='phone' id='homePhone' class='form-control'></div>
+          <div class='col-md-2'>Work Phone<br><input type='phone' id='workPhone' class='form-control'></div>
+          <div class='col-md-2'>Cell Phone<br><input type='phone' id='cellPhone' class='form-control'><br>
+             <div class='checkbox'>
+                <label>
+                   <input type='checkbox' id='textsOK' value='1'>
+                   Texts are OK
+                </label>
+             </div>
+          </div>
+       </div>
+       <h4>Password</h4>
+       <div class='row'>
+          <div class='col-md-3'>Select a password<br><input type='password' id='password1' class='form-control'></div>
+          <div class='col-md-3'>Confirm password<br><input type='password' id='password2' class='form-control'></div>
+       </div>
+       <h4>Finish</h4>
+       <div class='row'>
+          <div class='col-md-6'><button class='btn btn-primary btn-large' onclick='register()'>Register</button></div>
+       </div>
+      
+
+    </div>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+  </body>
+</html>
+
