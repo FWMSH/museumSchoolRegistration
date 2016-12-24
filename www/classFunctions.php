@@ -15,6 +15,10 @@
             case "PROCESSADDFAMILY":$this->processAddFamily();break;
             case "CHANGEFILTER":$this->changeFilter();break;
             case "CLASSDETAILS":$this->classDetails();break;
+            case "ENROLL":$this->enroll();break;
+            case "DROP":$this->dropClass();break;
+            case "CHECKOUT":$this->checkout();break;
+            case "SUCCESFULPAYMENT":$this->succesfulPayment();break;
          }
       }
 
@@ -101,6 +105,7 @@
          $myClasses .= "<div class='col-md-3' style='font-weight:bold;'>Status</div>";
          $myClasses .= "<div class='col-md-3' style='font-weight:bold;'>Options</div>";
          $myClasses .= "</div>";	// End Row
+         $myClasses .= $this->myClasses();
          $myClasses .= "</div>";	// End Container
 
          $html = "<h1>FWMSH Museum School Class Registration</h1>";
@@ -353,6 +358,195 @@
          else $_SESSION [ 'filter' ] [ $_POST [ 'filterID' ] ] [ 'selected' ] = true;
 
          $this->home();
+      }
+
+      function enroll()
+      {
+         $this->checkLogin();
+
+         $expiration = new DateTime ( "now" );
+         $expiration->add ( new DateInterval ( "PT30M" ) );
+
+         $sql = "SELECT * FROM `registration` WHERE `USERID` = :user AND `childID` = :child AND `classID` = :class AND `expirationTime` > NOW()";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":child" , $_POST [ 'childID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":class" , $_POST [ 'classID' ] , PDO::PARAM_INT );
+         $query->execute();
+
+         if ( $query->rowCount() != 0 )
+         {
+            $sql = "SELECT * FROM `children` WHERE `ID` = ?";
+            $query = $this->db->prepare ( $sql );
+            $query->bindValue ( 1 , $_POST [ 'childID' ] , PDO::PARAM_INT );
+            $query->execute();
+            $child = $query->fetch ( PDO::FETCH_ASSOC );
+
+            $html = "<div class='alert alert-warning alert-dismissible' role='alert'>";
+            $html .= "  <button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+            $html .= "  <strong>Already selected!</strong> This class is already in your cart for ".$child [ 'childName' ]."!";
+            $html .= "</div>";
+
+            $this->responseScript ( "$ ( '#modalBody' ).prepend ( \"".$html."\" )" );
+            $this->send();
+         }
+
+         $sql = "INSERT INTO `registration` ( `userID` , `childID` , `classID` , `status` , `expirationTime` ) VALUES ( :user , :child , :class , :status , :expiration )";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":child" , $_POST [ 'childID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":class" , $_POST [ 'classID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":status" , "NOT PAID" , PDO::PARAM_STR );
+         $query->bindValue ( ":expiration" , $expiration->format ( "Y-m-d H:i:s" ) , PDO::PARAM_STR );
+         $query->execute();
+
+         $sql = "UPDATE `registration` SET `expirationTime` = ? WHERE `status` = 'NOT PAID' AND `userID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $expiration->format ( "Y-m-d H:i:s" ) , PDO::PARAM_STR );
+         $query->bindValue ( 2 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->execute();
+
+         $sql = "SELECT * FROM `children` WHERE `ID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_POST [ 'childID' ] , PDO::PARAM_INT );
+         $query->execute();
+         $child = $query->fetch ( PDO::FETCH_ASSOC );
+
+         $html = "<div class='alert alert-success alert-dismissible' role='alert'>";
+         $html .= "  <button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+
+         $html .= "  <strong>Success!</strong> This class has been added to your cart for ".$child [ 'childName' ]."!";
+         $html .= "</div>";
+
+         $this->responseScript ( "$ ( \"#modalBody\" ).prepend ( \"".$html."\" )" );
+         $this->responseScript ( "startClock ( 30 )" );
+         $this->home();
+      }
+
+      function myClasses()
+      {
+         $this->checkLogin();
+
+         $sql = "SELECT * FROM `registration` WHERE `userID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->execute();
+
+         $once = False;
+         $html = "";
+
+         if ( $query->rowCount() == 0 )
+         {
+            $this->responseScript ( "stopClock()" );
+            return "<div class='col-md-12'>(No classes selected yet)</div>";
+         }
+
+         while ( $cart = $query->fetch ( PDO::FETCH_ASSOC ) )
+         {
+            $sql = "SELECT * FROM `children` WHERE `ID` = ?";
+            $childQuery = $this->db->prepare ( $sql );
+            $childQuery->bindValue ( 1 , $cart [ 'childID' ] ,  PDO::PARAM_INT );
+            $childQuery->execute();
+            $child = $childQuery->fetch ( PDO::FETCH_ASSOC );
+
+            $sql = "SELECT * FROM `classes` WHERE `ID` = ?";
+            $classQuery = $this->db->prepare ( $sql );
+            $classQuery->bindValue ( 1 , $cart [ 'classID' ] ,  PDO::PARAM_INT );
+            $classQuery->execute();
+            $class = $classQuery->fetch ( PDO::FETCH_ASSOC );
+
+            $cartExpiration = DateTime::createFromFormat ( "Y-m-d H:i:s" , $cart [ 'expirationTime' ] );
+            $now = new DateTime ( "now" );
+            $total = 0;
+
+            if ( $now > $cartExpiration && $cart [ 'status' ] != "PAID" )
+            {
+               $startTag = "<s>";
+               $endTag = "</s>";
+               $status = "EXPIRED";
+            }
+            else
+            {
+               $startTag = "";
+               $endTag = "";
+               $status = $cart [ 'status' ];
+               $total += intval ( $class [ 'Cost' ] );
+
+               if ( $once == False )
+               {
+                  $timeLeft = $now->diff ( $cartExpiration , True );
+                  $this->responseScript ( "startClock ( ".$timeLeft->format ( "%i" )." , ".$timeLeft->format ( "%s" )." )" );
+                  $once = True;
+               }
+            }
+
+            $html .= "<div class='row'>";
+            $html .= "<div class='col-md-3'>".$startTag.$child [ 'childName' ].$endTag."</div>";
+            $html .= "<div class='col-md-3'>".$startTag.$class [ 'ClassName' ]." (".$class [ 'MeetingDays' ].")".$endTag."</div>";
+            $html .= "<div class='col-md-3'>".$status."</div>";
+            $html .= "<div class='col-md-3'><button class='btn btn-danger btn-xs' onclick='drop ( ".$cart [ 'ID' ]." )'><span class='glyphicon glyphicon-download'></span> Drop Class</button></div>";
+            $html .= "</div>";	// End Row
+         }
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-offset-5 col-md-4' style='font-weight:bold;'>Class total $".$total."</div>";
+         $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
+         $html .= "</div>";	// End Row
+
+         return $html;
+      }
+
+      function dropClass()
+      {
+         $this->checkLogin();
+
+         $sql = "SELECT * FROM `registration` WHERE `ID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_POST [ 'reservationID' ] , PDO::PARAM_INT );
+         $query->execute();
+         $reservation = $query->fetch ( PDO::FETCH_ASSOC );
+
+         if ( $reservation [ 'userID' ] == $_SESSION [ 'ID' ] )
+         {
+            $sql = "DELETE FROM `registration` WHERE `ID` = ? LIMIT 1";
+            $query = $this->db->prepare ( $sql );
+            $query->bindValue ( 1 , $_POST [ 'reservationID' ] , PDO::PARAM_INT );
+            $query->execute();
+         }
+
+         $this->home();
+      }
+
+      function checkout()
+      {
+         $this->checkLogin();
+
+         $title = "<h4>Checkout</h4>";
+         $html = "<h1>Authorize.net interface goes here</h1>";
+         $html .= "<button class='btn btn-success btn-large' onclick='succesfulPayment ( ".$_POST [ 'total' ]." )'>Pay $".$_POST [ 'total' ]."</button>";
+
+         $this->responseHTML ( "modalTitle" , $title );
+         $this->responseHTML ( "modalBody" , $html );
+         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"show\" )" );
+         $this->send();
+      }
+
+      function succesfulPayment()
+      {
+         $this->checkLogin();
+
+         $sql = "INSERT INTO `payments` ( `userID` , `amount` , `status` ) VALUES ( :user , :amount , :status )";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":amount" , $_POST [ 'amount' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":status" , "SUCCESS" , PDO::PARAM_STR );
+         $query->execute();         
+
+         $sql = "UPDATE `registration` SET `status` = 'PAID' , `paymentID` = ? WHERE `userID` = ? AND `expirationTime` > NOW()";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $this->db->lastInsertId() , PDO::PARAM_INT );
+         $query->bindValue ( 2 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->execute();
+ 
       }
 
       function login()

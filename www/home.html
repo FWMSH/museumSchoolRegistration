@@ -23,6 +23,9 @@
         return s;
       }
 
+      clockRunning = false;
+      ticker = setInterval ( tick , 1000 );
+
       function decode ( json )
       {
          decodedJSON = JSON.parse ( json );
@@ -107,18 +110,82 @@
          } );
       }
 
-      function startClock ( minute )
+      function startClock ( minute , seconds )
       {
+         if ( minute == null ) minute = 30;
+         if ( seconds == null ) seconds = 59;
+
          countdown = new Date();
-         countdown.setMinutes ( minute - 1 );
-         countdown.setSeconds ( 59 );
-         ticker = setInterval ( tick , 1000 );
+         countdown.setMinutes ( minute );
+         countdown.setSeconds ( seconds );
+         clockRunning = true;
+      }
+
+      function stopClock()
+      {
+         clockRunning = false;
+         $ ( "#clock" ).html ( "" );
       }
 
       function tick()
       {
+         if ( clockRunning == false ) return;
+
          countdown.setSeconds ( countdown.getSeconds() - 1 );
+
+         if ( countdown.getSeconds () == 0 && countdown.getMinutes() == 0 )
+         {
+            clockRunning = false;
+
+            $ ( "#clock" ).html ( "" );
+            home();
+         }
          $ ( "#clock" ).html ( countdown.getMinutes() + ":" + countdown.getSeconds().pad() + " minutes left to pay" );
+      }
+
+      function enroll ( classID , childID )
+      {
+         obj = new Object();
+         obj.action = "ENROLL";
+         obj.childID = childID;
+         obj.classID = classID;
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function drop ( reservationID )
+      {
+         obj = new Object();
+         obj.action = "DROP";
+         obj.reservationID = reservationID;
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function checkout ( amount )
+      {
+         obj = new Object();
+         obj.action = "CHECKOUT";
+         obj.total = amount;
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function succesfulPayment ( amount )
+      {
+         obj = new Object();
+         obj.action = "SUCCESFULPAYMENT";
+         obj.amount = amount;
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
       }
     </script>
 
