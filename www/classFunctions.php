@@ -226,6 +226,7 @@
          $catalog .= "<div class='col-md-2' style='font-weight:bold;'>End Date / Time</div>";
          $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Meeting Days</div>";
          $catalog .= "<div class='col-md-1' style='font-weight:bold;'>Cost</div>";
+         $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Eligible Students</div>";
          $catalog .= "</div>";	// End Row
 
          $result = $this->db->query ( $sql );
@@ -256,7 +257,29 @@
             }
             if ( $showClass == false ) continue;
 
-            $catalog .= "<div class='row' onclick='classDetails ( ".$class [ 'ID' ]." )'>";
+            $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `status` = 'NOT PAID' AND `expirationTime` > NOW()";
+            $spaceQuery = $this->db->prepare ( $sql );
+            $spaceQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+            $spaceQuery->execute();
+            $pending = $spaceQuery->rowCount();
+
+            $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `status` = 'PAID'";
+            $spaceQuery = $this->db->prepare ( $sql );
+            $spaceQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+            $spaceQuery->execute();
+            $paid = $spaceQuery->rowCount();
+
+            $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `status` = 'PAIDHALF'";
+            $spaceQuery = $this->db->prepare ( $sql );
+            $spaceQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+            $spaceQuery->execute();
+            $paidHalf = $spaceQuery->rowCount();
+
+            $seatsLeft = intval ( $class [ 'MaximumSize' ] ) - $pending - $paid - $paidHalf;
+
+            if ( $seatsLeft == 0 ) $catalog .= "<div class='row bg-danger'>";
+            else $catalog .= "<div class='row row-striped' onclick='classDetails ( ".$class [ 'ID' ]." )'>";
+
             $catalog .= "<div class='col-md-2'>";
             $catalog .= "<span class='glyphicon glyphicon-menu-right'></span> ";
             $catalog .= $class [ 'ClassName' ]."<br>Click for more info";
@@ -302,9 +325,29 @@
             }
          }
 
+         $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `status` = 'NOT PAID' AND `expirationTime` > NOW()";
+         $spaceQuery = $this->db->prepare ( $sql );
+         $spaceQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+         $spaceQuery->execute();
+         $pending = $spaceQuery->rowCount();
+
+         $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `status` = 'PAID'";
+         $spaceQuery = $this->db->prepare ( $sql );
+         $spaceQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+         $spaceQuery->execute();
+         $paid = $spaceQuery->rowCount();
+
+         $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `status` = 'PAIDHALF'";
+         $spaceQuery = $this->db->prepare ( $sql );
+         $spaceQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+         $spaceQuery->execute();
+         $paidHalf = $spaceQuery->rowCount();
+
+         $seatsLeft = intval ( $class [ 'MaximumSize' ] ) - $pending - $paid - $paidHalf;
+
          $title = "<h4>".$class [ 'ClassName' ]."</h4>";
          $html = "<div class='container-fluid;'>";
-         $html .= "<div class='row'>";
+         $html .= "<div class='row' style='padding-bottom:10px;'>";
          $html .= "<div class='col-md-12'>".$class [ 'ClassDescription' ]."</div>";
          $html .= "</div>";	// End Row
 
@@ -334,12 +377,21 @@
          $html .= "<div class='col-md-8'>$".$class [ 'Cost' ]."</div>";
          $html .= "</div>";	// End Row
 
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4' style='font-weight:bold;'>Seats Left</div>";
+         $html .= "<div class='col-md-8'>".$seatsLeft."</div>";
+         $html .= "</div>";	// End Row
+
          $html .= "</div>";	// End Container
 
          $buttons = "";
-         foreach ( $eligible AS $key=>$student )
+
+         if ( $seatsLeft > 0 )
          {
-            $buttons .= "<button type='button' class='btn btn-success' onclick='enroll ( ".$class [ 'ID' ]." , ".$student [ 'childID' ]." )'>Enroll ".$student [ 'name' ]."</button>";
+            foreach ( $eligible AS $key=>$student )
+            {
+               $buttons .= "<button type='button' class='btn btn-success' onclick='enroll ( ".$class [ 'ID' ]." , ".$student [ 'childID' ]." )'>Enroll ".$student [ 'name' ]."</button>";
+            }
          }
          $buttons .= "<button type='button' class='btn btn-default' data-dismiss='modal'>Close</button>";
 
@@ -367,7 +419,7 @@
          $expiration = new DateTime ( "now" );
          $expiration->add ( new DateInterval ( "PT30M" ) );
 
-         $sql = "SELECT * FROM `registration` WHERE `USERID` = :user AND `childID` = :child AND `classID` = :class AND `expirationTime` > NOW()";
+         $sql = "SELECT * FROM `registration` WHERE `userID` = :user AND `childID` = :child AND `classID` = :class AND ( `expirationTime` > NOW() OR `status` = 'PAID' OR `status` = 'PAIDHALF' )";
          $query = $this->db->prepare ( $sql );
          $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
          $query->bindValue ( ":child" , $_POST [ 'childID' ] , PDO::PARAM_INT );
@@ -441,6 +493,8 @@
             return "<div class='col-md-12'>(No classes selected yet)</div>";
          }
 
+         $total = 0;
+         $clockRun = False;
          while ( $cart = $query->fetch ( PDO::FETCH_ASSOC ) )
          {
             $sql = "SELECT * FROM `children` WHERE `ID` = ?";
@@ -457,28 +511,34 @@
 
             $cartExpiration = DateTime::createFromFormat ( "Y-m-d H:i:s" , $cart [ 'expirationTime' ] );
             $now = new DateTime ( "now" );
-            $total = 0;
 
-            if ( $now > $cartExpiration && $cart [ 'status' ] != "PAID" )
+            if ( $now > $cartExpiration && $cart [ 'status' ] != "PAID" && $cart [ 'status' ] != "PAIDHALF" )
             {
+               // Registration has expired
                $startTag = "<s>";
                $endTag = "</s>";
                $status = "EXPIRED";
+            }
+            else if ( $now < $cartExpiration && $cart [ 'status' ] != "PAID" && $cart [ 'status' ] != "PAIDHALF" )
+            {
+               // Not expired, not paid
+               $startTag = "";
+               $endTag = "";
+               $status = $cart [ 'status' ];
+               $total += intval ( $class [ 'Cost' ] );
+
+               $timeLeft = $now->diff ( $cartExpiration , True );
+               $clockRun = True;
             }
             else
             {
                $startTag = "";
                $endTag = "";
                $status = $cart [ 'status' ];
-               $total += intval ( $class [ 'Cost' ] );
-
-               if ( $once == False )
-               {
-                  $timeLeft = $now->diff ( $cartExpiration , True );
-                  $this->responseScript ( "startClock ( ".$timeLeft->format ( "%i" )." , ".$timeLeft->format ( "%s" )." )" );
-                  $once = True;
-               }
             }
+
+            if ( $clockRun == True ) $this->responseScript ( "startClock ( ".$timeLeft->format ( "%i" )." , ".$timeLeft->format ( "%s" )." )" );
+            else $this->responseScript ( "stopClock()" );
 
             $html .= "<div class='row'>";
             $html .= "<div class='col-md-3'>".$startTag.$child [ 'childName' ].$endTag."</div>";
@@ -488,8 +548,8 @@
             $html .= "</div>";	// End Row
          }
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-offset-5 col-md-4' style='font-weight:bold;'>Class total $".$total."</div>";
-         $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
+         $html .= "<div class='col-md-offset-5 col-md-4' style='font-weight:bold;'>Unpaid total $".$total."</div>";
+         if ( $total != 0 ) $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
          $html .= "</div>";	// End Row
 
          return $html;
@@ -546,7 +606,8 @@
          $query->bindValue ( 1 , $this->db->lastInsertId() , PDO::PARAM_INT );
          $query->bindValue ( 2 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
          $query->execute();
- 
+
+         $this->home(); 
       }
 
       function login()
