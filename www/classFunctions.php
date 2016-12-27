@@ -313,15 +313,97 @@
             $allAges [ $key ] = intval ( $age );
          }
 
-         foreach ( $_SESSION [ 'filter' ] AS $key=>$child )
+         if ( $class [ 'classType' ] == "CLASS" )
          {
-            $cutoff = DateTime::createFromFormat ( "Y-m-d" , $class [ 'ageCutoff' ] );
-            $age = abs ( intval ( $cutoff->diff ( $child [ 'bday' ] )->format ( "%y" ) ) );
-
-            if ( in_array ( $age , $allAges ) == true )
+            foreach ( $_SESSION [ 'filter' ] AS $key=>$child )
             {
-               $showClass = true;
-               if ( !in_array ( $child , $eligible ) ) $eligible[] = $child;
+               $cutoff = DateTime::createFromFormat ( "Y-m-d" , $class [ 'ageCutoff' ] );
+               $age = abs ( intval ( $cutoff->diff ( $child [ 'bday' ] )->format ( "%y" ) ) );
+
+               if ( in_array ( $age , $allAges ) == true )
+               {
+                  $showClass = true;
+                  if ( !in_array ( $child , $eligible ) ) $eligible[] = $child;
+               }
+            }
+         }
+         else if ( $class [ 'classType' ] == "ADDON" )
+         {
+            $html .= "ADDON";
+            $corequisites = explode ( "," , $class [ 'coRequisites' ] );
+            $sql = "SELECT * FROM `registration` WHERE `userID` = ? AND `classID` = ?";
+            $classQuery = $this->db->prepare ( $sql );
+
+            foreach ( $corequisites AS $co )
+            {
+               $classQuery->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+               $classQuery->bindValue ( 2 , $co , PDO::PARAM_INT );
+               $classQuery->execute();
+               while ( $registration = $classQuery->fetch ( PDO::FETCH_ASSOC ) )
+               {
+                  $sql = "SELECT * FROM `children` WHERE `ID` = ?";
+                  $childQuery = $this->db->prepare ( $sql );
+                  $childQuery->bindValue ( 1 , $registration [ 'childID' ] , PDO::PARAM_INT );
+                  $childQuery->execute();
+
+                  $child = $childQuery->fetch ( PDO::FETCH_ASSOC );
+                  $eligible[] = array ( "childID"=>$child [ 'ID' ] , "name"=>$child [ 'childName' ] );
+               }
+            }
+         } 
+
+         //$sql = "SELECT * FROM `registration` WHERE `userID` = ? AND `classID` = ? AND ( `expirationTime` > NOW() OR `status` = 'PAID' OR `status` = 'PAIDHALF' )";
+         $sql = "SELECT * FROM `registration` WHERE `userID` = ? AND `classID` = ?";
+
+         $enrolledQuery = $this->db->prepare ( $sql );
+         $enrolledQuery->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $enrolledQuery->bindValue ( 2 , $_POST [ 'classID' ] , PDO::PARAM_INT );
+         $enrolledQuery->execute();
+
+         $enrolled = False;
+         $children = "";
+         if ( $enrolledQuery->rowCount() > 0 )
+         {
+            $childProcessed = array();
+            while ( $registration = $enrolledQuery->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               if ( array_search ( $registration [ 'childID' ] , $childProcessed  ) == True ) continue;
+               $childProcessed[] = $registration [ 'childID' ];
+               
+               $sql = "SELECT * FROM `children` WHERE `ID` = ?";
+               $childQuery = $this->db->prepare ( $sql );
+               $childQuery->bindValue ( 1 , $registration [ 'childID' ] , PDO::PARAM_INT );
+               $childQuery->execute();
+               $child = $childQuery->fetch ( PDO::FETCH_ASSOC );
+
+               $paid = "";
+              
+               $expiration = DateTime::createFromFormat ( "Y-m-d H:i:s" , $registration [ 'expirationTime' ] );
+               $now = new DateTime ( "now" );
+               if ( $now > $expiration && $registration [ 'status' ] == "NOT PAID" )
+               {
+                  continue;
+                  $children .= "<div class='alert alert-warning alert-dismissible' role='alert'>";
+                  $children .= "  <button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+                  $children .= "  This class was selected for ".$child [ 'childName' ]." but was not paid for within the 30 minute window.  If there is still room you can enroll again.";
+                  $children .= "</div>";
+               }
+               else if ( $registration [ 'status' ] == "PAID" )
+               {
+                  $enrolled = True;
+                  $children .= "<div class='alert alert-success alert-dismissible' role='alert'>";
+                  $children .= "  <button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+                  $children .= "  ".$child [ 'childName' ]." is enrolled in this class!".$paid;
+                  $children .= "</div>";
+               }
+               else if ( $registration [ 'status' ] == "NOT PAID" )
+               {
+                  $enrolled = True;
+                  $children .= "<div class='alert alert-info alert-dismissible' role='alert'>";
+                  $children .= "  <button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+                  $children .= "  This class is pending for ".$child [ 'childName' ]." but not paid yet!".$paid;
+                  $children .= "</div>";
+               }
             }
          }
 
@@ -346,7 +428,8 @@
          $seatsLeft = intval ( $class [ 'MaximumSize' ] ) - $pending - $paid - $paidHalf;
 
          $title = "<h4>".$class [ 'ClassName' ]."</h4>";
-         $html = "<div class='container-fluid;'>";
+         $html = $children;
+         $html .= "<div class='container-fluid;'>";
          $html .= "<div class='row' style='padding-bottom:10px;'>";
          $html .= "<div class='col-md-12'>".$class [ 'ClassDescription' ]."</div>";
          $html .= "</div>";	// End Row
@@ -377,16 +460,18 @@
          $html .= "<div class='col-md-8'>$".$class [ 'Cost' ]."</div>";
          $html .= "</div>";	// End Row
 
-         $html .= "<div class='row'>";
-         $html .= "<div class='col-md-4' style='font-weight:bold;'>Seats Left</div>";
-         $html .= "<div class='col-md-8'>".$seatsLeft."</div>";
-         $html .= "</div>";	// End Row
-
+         if ( $enrolled == False )
+         {
+            $html .= "<div class='row'>";
+            $html .= "<div class='col-md-4' style='font-weight:bold;'>Seats Left</div>";
+            $html .= "<div class='col-md-8'>".$seatsLeft."</div>";
+            $html .= "</div>";	// End Row
+         }
          $html .= "</div>";	// End Container
 
          $buttons = "";
 
-         if ( $seatsLeft > 0 )
+         if ( $seatsLeft > 0 && $enrolled == False )
          {
             foreach ( $eligible AS $key=>$student )
             {
@@ -452,7 +537,7 @@
          $query->bindValue ( ":expiration" , $expiration->format ( "Y-m-d H:i:s" ) , PDO::PARAM_STR );
          $query->execute();
 
-         $sql = "UPDATE `registration` SET `expirationTime` = ? WHERE `status` = 'NOT PAID' AND `userID` = ?";
+         $sql = "UPDATE `registration` SET `expirationTime` = ? WHERE `status` = 'NOT PAID' AND `userID` = ? AND `expirationTime` > NOW();";
          $query = $this->db->prepare ( $sql );
          $query->bindValue ( 1 , $expiration->format ( "Y-m-d H:i:s" ) , PDO::PARAM_STR );
          $query->bindValue ( 2 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
@@ -540,8 +625,27 @@
             if ( $clockRun == True ) $this->responseScript ( "startClock ( ".$timeLeft->format ( "%i" )." , ".$timeLeft->format ( "%s" )." )" );
             else $this->responseScript ( "stopClock()" );
 
-            $html .= "<div class='row'>";
-            $html .= "<div class='col-md-3'>".$startTag.$child [ 'childName' ].$endTag."</div>";
+            $sql = "SELECT * FROM `classes` WHERE `coRequisites` LIKE '%".$cart [ 'classID' ]."%'";
+            $result = $this->db->query ( $sql );
+
+            //$coQuery = $this->db->prepare ( $sql );
+            //$coQuery->bindValue ( 1 , strval ( $cart [ 'classID' ] ) , PDO::PARAM_STR );
+            //$coQuery->execute();
+            //$rowBG = "ROWBG";
+            $addonText = "";
+
+            $rowBG = "";
+            if ( $result->rowCount() > 0 )
+            {
+               $addon = $result->fetch ( PDO::FETCH_ASSOC );
+
+               $rowBG = "bg-info";
+               $addonText = "<button class='btn btn-xs btn-info' onclick='event.stopPropagation();classDetails ( ".$addon [ 'ID' ]." )'><span class='glyphicon glyphicon-circle-arrow-up'></span> Add-Ons Available</button>";
+            }
+
+            if ( $status == "EXPIRED" ) $html .= "<div class='row'>";
+            else $html .= "<div class='row ".$rowBG."' onclick='classDetails ( ".$cart [ 'classID' ]." )'>";
+            $html .= "<div class='col-md-3'>".$startTag.$child [ 'childName' ].$endTag."<br>".$addonText."</div>";
             $html .= "<div class='col-md-3'>".$startTag.$class [ 'ClassName' ]." (".$class [ 'MeetingDays' ].")".$endTag."</div>";
             $html .= "<div class='col-md-3'>".$status."</div>";
             $html .= "<div class='col-md-3'><button class='btn btn-danger btn-xs' onclick='drop ( ".$cart [ 'ID' ]." )'><span class='glyphicon glyphicon-download'></span> Drop Class</button></div>";

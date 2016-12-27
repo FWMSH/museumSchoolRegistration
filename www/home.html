@@ -161,6 +161,8 @@
          obj.action = "DROP";
          obj.reservationID = reservationID;
 
+         event.stopPropagation();
+
          $.post ( "classFunctions.php" , obj , function ( data ) {
             decode ( data );
          } );
