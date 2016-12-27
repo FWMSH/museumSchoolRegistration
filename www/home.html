@@ -179,11 +179,12 @@
          } );
       }
 
-      function succesfulPayment ( amount )
+      function succesfulPayment ( amount , status )
       {
          obj = new Object();
          obj.action = "SUCCESFULPAYMENT";
          obj.amount = amount;
+         obj.status = status;
 
          $.post ( "classFunctions.php" , obj , function ( data ) {
             decode ( data );
