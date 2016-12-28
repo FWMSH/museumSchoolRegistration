@@ -282,7 +282,8 @@
 
             $catalog .= "<div class='col-md-2'>";
             $catalog .= "<span class='glyphicon glyphicon-menu-right'></span> ";
-            $catalog .= $class [ 'ClassName' ]."<br>Click for more info";
+            if ( $seatsLeft != 0 ) $catalog .= $class [ 'ClassName' ]."<br>Click for more info";
+            else $catalog .= $class [ 'ClassName' ]." <b>(Full)</b>";
             $catalog .= "</div>";
             $catalog .= "<div class='col-md-1'>".$class [ 'Age' ]."</div>";
             $catalog .= "<div class='col-md-2'>".$class [ 'StartDate' ]."<br>".$class [ 'StartTime' ]."</div>";
@@ -536,6 +537,20 @@
          $query->bindValue ( ":status" , "NOT PAID" , PDO::PARAM_STR );
          $query->bindValue ( ":expiration" , $expiration->format ( "Y-m-d H:i:s" ) , PDO::PARAM_STR );
          $query->execute();
+         $registrationID = $this->db->lastInsertId();
+
+         $sql = "SELECT * FROM `classes` WHERE `ID` = ?";
+         $classQuery = $this->db->prepare ( $sql );
+         $classQuery->bindValue ( 1 , $_POST [ 'classID' ] , PDO::PARAM_INT );
+         $classQuery->execute();
+         $class = $classQuery->fetch ( PDO::FETCH_ASSOC );
+
+         $sql = "INSERT INTO `paymentItems` ( `registrationID` , `userID` , `amountDue` ) VALUES ( :registration , :user , :amount )";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( ":registration" , $registrationID , PDO::PARAM_INT );
+         $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":amount" , $class [ 'Cost' ] , PDO::PARAM_INT );
+         $query->execute();
 
          $sql = "UPDATE `registration` SET `expirationTime` = ? WHERE `status` = 'NOT PAID' AND `userID` = ? AND `expirationTime` > NOW();";
          $query = $this->db->prepare ( $sql );
@@ -666,7 +681,9 @@
          }
          $html .= "<div class='row'>";
          $html .= "<div class='col-md-offset-5 col-md-4' style='font-weight:bold;'>Unpaid total $".$total."</div>";
-         if ( $total != 0 ) $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
+         //if ( $total != 0 ) $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
+         $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
+
          $html .= "</div>";	// End Row
 
          return $html;
@@ -684,6 +701,24 @@
 
          if ( $reservation [ 'userID' ] == $_SESSION [ 'ID' ] )
          {
+            if ( $_POST [ 'confirm' ] == 0 )
+            {
+               if ( $reservation [ 'status' ] == "PAID" || $reservation [ 'status' ] == "PAIDHALF" && $_POST [ 'confirm' ] == 0 )
+               {
+                  $title = "<h4>Drop Class</h4>";
+                  $html = "<h1>Refund policy goes here</h1>";
+                  $buttons = "<button type=\"button\" class=\"btn btn-default\" data-dismiss=\"modal\">Cancel</button>";
+                  $buttons .= "<button type=\"button\" class=\"btn btn-danger\" onclick='drop ( ".$reservation [ 'ID' ]." , true )'>Drop Class</button>";
+
+                  $this->responseHTML ( "modalTitle" , $title );
+                  $this->responseHTML ( "modalBody" , $html );
+                  $this->responseHTML ( "modalFooter" , $buttons );
+                  $this->responseScript ( "$ ( \"#modal\" ).modal ( \"show\" )" );
+                  $this->send(); 
+               }
+            }
+
+            $this->responseScript ( "$ ( \"#modal\" ).modal ( \"hide\" )" );
             $sql = "DELETE FROM `registration` WHERE `ID` = ? LIMIT 1";
             $query = $this->db->prepare ( $sql );
             $query->bindValue ( 1 , $_POST [ 'reservationID' ] , PDO::PARAM_INT );
@@ -697,12 +732,43 @@
       {
          $this->checkLogin();
 
-         if ( $_POST [ 'total' ] % 2 == 0 ) $half = $_POST [ 'total' ] / 2;
-         else $half = ( $_POST [ 'total' ] + 1 ) / 2 ;
+         $sql = "SELECT * FROM `paymentItems` WHERE `userID` = ? AND `fullPaymentID` is NULL AND `half1paymentID` is NULL";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->execute();
+
+         $total = 0;
+         while ( $item = $query->fetch ( PDO::FETCH_ASSOC ) )
+         {
+            $total += intval ( $item [ 'amountDue' ] );
+         }
+
+         if ( $total % 2 == 0 ) $half = $total / 2;
+         else $half = ( $total + 1 ) / 2 ;
+
+         $sql = "SELECT * FROM `paymentItems` WHERE `userID` = ? AND `half1paymentID` IS NOT NULL AND `half2paymentID` IS NULL";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->execute();
+
+         $halfTotal = 0;
+         $_SESSION [ 'halfIDs' ] = array();
+         while ( $unpaid = $query->fetch ( PDO::FETCH_ASSOC ) )
+         {
+            $halfTotal += intval ( $unpaid [ 'amountDue' ] ) - intval ( $unpaid [ 'half1amount' ] );
+            $_SESSION [ 'halfIDs' ][] = $unpaid [ 'registrationID' ];
+         }
 
          $title = "<h4>Checkout</h4>";
-         $html = "<h1>Authorize.net interface goes here</h1>";
-         $html .= "<button class='btn btn-success btn-large' onclick='succesfulPayment ( ".$_POST [ 'total' ]." , \"PAID\" )'>Pay $".$_POST [ 'total' ]."</button>";
+
+         if ( $halfTotal != 0 )
+         {
+            $html = "<h3>Half Payments</h3>";
+            $html .= "Complete payment of $".$halfTotal." <button class='btn btn-success btn-large' onclick='succesfulPayment ( ".$halfTotal." , \"HALF2\" )'>Pay $".$halfTotal."</button>";
+         }
+
+         $html .= "<h1>Authorize.net interface goes here</h1>";
+         $html .= "<button class='btn btn-success btn-large' onclick='succesfulPayment ( ".$total." , \"PAID\" )'>Pay $".$total."</button>";
          $html .= "<button class='btn btn-success btn-large' onclick='succesfulPayment ( ".$half." , \"PAIDHALF\" )'>Pay Half $".$half."</button>";
 
          $this->responseHTML ( "modalTitle" , $title );
@@ -725,6 +791,28 @@
          $query->execute();         
          $paymentID = $this->db->lastInsertId();
 
+         if ( $_POST [ 'status' ] == "HALF2" )
+         {
+            $sql = "UPDATE `paymentItems` SET `half2paymentID` = ? , `half2amount` = `amountDue` - `half1amount` WHERE `registrationID` = ?";
+            $query = $this->db->prepare ( $sql );
+
+            $sql = "UPDATE `registration` SET `status` = ? WHERE `ID` = ?";
+            $regQuery = $this->db->prepare ( $sql );
+
+            foreach ( $_SESSION [ 'halfIDs' ] AS $payItem )
+            {
+               $query->bindValue ( 1 , $paymentID , PDO::PARAM_INT );
+               $query->bindValue ( 2 , $payItem , PDO::PARAM_INT );
+               $query->execute();
+
+               $regQuery->bindValue ( 1 , "PAID" , PDO::PARAM_STR );
+               $regQuery->bindValue ( 2 , $payItem , PDO::PARAM_INT );
+               $regQuery->execute();
+            }
+
+            $this->home();
+         }
+
          $sql = "SELECT * FROM `registration` WHERE `userID` = ? AND `status` = 'NOT PAID' AND `expirationTime` > NOW()";
          $query = $this->db->prepare ( $sql );
          $query->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
@@ -740,36 +828,60 @@
 
             if ( $_POST [ 'status' ] == "PAID" )
             {
-               $sql = "INSERT INTO `paymentItems` ( `paymentID` , `registrationID` , `status` , `fullPayment` , `fullPaymentDate` ) VALUES ( :payment , :registration , :status , :full , NOW() )";
+               $sql = "UPDATE `paymentItems` SET `fullPayment` = `amountDue` , `fullPaymentID` = ? WHERE `registrationID` = ?";
+               $paymentQuery = $this->db->prepare ( $sql );
+               $paymentQuery->bindValue ( 1 , $paymentID , PDO::PARAM_INT );
+               $paymentQuery->bindValue ( 2 , $class [ 'ID' ] , PDO::PARAM_INT );
+               $paymentQuery->execute();
+
+               /*
+               $sql = "INSERT INTO `paymentItems` ( `paymentID` , `registrationID` , `userID` , `status` , `fullPayment` , `fullPaymentDate` ) VALUES ( :payment , :registration , :user , :status , :full , NOW() )";
                $paymentQuery = $this->db->prepare ( $sql );
                $paymentQuery->bindValue ( ":payment" , $paymentID , PDO::PARAM_INT );
                $paymentQuery->bindValue ( ":registration" , $class [ 'classID' ] , PDO::PARAM_INT );
                $paymentQuery->bindValue ( ":status" , $_POST [ 'status' ] , PDO::PARAM_STR );
                $paymentQuery->bindValue ( ":full" , $thisClass [ 'Cost' ] , PDO::PARAM_INT );
+               $paymentQuery->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
                $paymentQuery->execute();
+               */
             }
 
             if ( $_POST [ 'status' ] == "PAIDHALF" )
             {
-               $sql = "INSERT INTO `paymentItems` ( `paymentID` , `registrationID` , `status` , `half1amount` , `half2amount` , `half1paymentDate` ) VALUES ( :payment , :registration , :status , :half1 , :half2 , NOW() )";
+               $sql = "SELECT * FROM `paymentItems` WHERE `registrationID` = ?";
+               $payQuery = $this->db->prepare ( $sql );
+               $payQuery->bindValue ( 1 , $class [ 'ID' ] , PDO::PARAM_INT );
+               $payQuery->execute();
+               $payItem = $payQuery->fetch ( PDO::FETCH_ASSOC );
+
+               $sql = "UPDATE `paymentItems` SET `half1paymentID` = ? , `half1amount` = ? WHERE `registrationID` = ?";
+               //$sql = "INSERT INTO `paymentItems` ( `paymentID` , `registrationID` , `userID` , `status` , `half1amount` , `half2amount` , `half1paymentDate` ) VALUES ( :payment , :registration , :user , :status , :half1 , :half2 , NOW() )";
 
                if ( $thisClass [ 'Cost' ] % 2 == 0 )
                {
-                  $half1 = $thisClass [ 'Cost' ] / 2;
-                  $half2 = $thisClass [ 'Cost' ] / 2 ;
+                  $half1 = $payItem [ 'amountDue' ] / 2;
+                  $half2 = $payItem [ 'amountDue' ] / 2 ;
                }
                else
                {
-                  $half1 = ( $thisClass [ 'Cost' ] + 1 ) / 2;
-                  $half2 = ( $thisClass [ 'Cost' ] - 1 ) / 2;
+                  $half1 = ( $payItem [ 'amountDue' ] + 1 ) / 2;
+                  $half2 = ( $payItem [ 'amountDue' ] - 1 ) / 2;
                }
                $paymentQuery = $this->db->prepare ( $sql );
+               $paymentQuery->bindValue ( 1 , $paymentID , PDO::PARAM_INT );
+               $paymentQuery->bindValue ( 2 , $half1 , PDO::PARAM_INT );
+               $paymentQuery->bindValue ( 3 , $class [ 'ID' ] , PDO::PARAM_INT );
+               $paymentQuery->execute();
+
+               /*
                $paymentQuery->bindValue ( ":payment" , $paymentID , PDO::PARAM_INT );
                $paymentQuery->bindValue ( ":registration" , $class [ 'classID' ] , PDO::PARAM_INT );
+               $paymentQuery->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
                $paymentQuery->bindValue ( ":status" , $_POST [ 'status' ] , PDO::PARAM_STR );
                $paymentQuery->bindValue ( ":half1" , $half1 , PDO::PARAM_INT );
                $paymentQuery->bindValue ( ":half2" , $half2 , PDO::PARAM_INT );
                $paymentQuery->execute();
+               */
             }
 
          }
@@ -781,7 +893,7 @@
          $query->bindValue ( 3 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
          $query->execute();
 
-         $this->responseScript ( "$ ( \"modal\" ).modal ( \"hide\" )" );
+         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"hide\" )" );
          $this->home(); 
       }
 

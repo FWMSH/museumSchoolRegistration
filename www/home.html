@@ -155,11 +155,13 @@
          } );
       }
 
-      function drop ( reservationID )
+      function drop ( reservationID , confirm )
       {
          obj = new Object();
          obj.action = "DROP";
          obj.reservationID = reservationID;
+         if ( confirm == true ) obj.confirm = 1;
+         else obj.confirm = 0;
 
          event.stopPropagation();
 
