@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Noble Planetarium Attendance</title>
+    <title>Online Registration Administration</title>
 
     <!-- Bootstrap -->
     <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -32,50 +32,27 @@
          }
       }
 
+      function ajax ( obj )
+      {
+         $.post ( "adminFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
       function admin()
       {
          obj = new Object();
          obj.action = "ADMIN";
 
-         $.post ( "adminFunctions.php" , obj , function ( data ) {
-            decode ( data );
-         } );
+         ajax ( obj );
       }
 
-      function newExhibit()
+      function classes()
       {
          obj = new Object();
-         obj.action = "NEWEXHIBIT";
+         obj.action = "CLASSES";
 
-         $.post ( "adminFunctions.php" , obj , function ( data ) {
-            decode ( data );
-         } );
-      }
-
-      function processNewExhibit()
-      {
-         obj = new Object();
-         obj.action = "PROCESSNEWEXHIBIT";
-         obj.name = $ ( "#exhibitName" ).val();
-         obj.gallery = $ ( "#gallery" ).val();
-         obj.location = $ ( "#location" ).val();
-         obj.frequency = $ ( "#frequency" ).val();
-         obj.lastInspection = $ ( "#lastInspection" ).val();
-
-         $.post ( "adminFunctions.php" , obj , function ( data ) {
-            decode ( data );
-         } );
-      }
-
-      function subsystems ( exhibitID )
-      {
-         obj = new Object();
-         obj.action = "SUBSYSTEMS";
-         obj.exhibitID = exhibitID;
-
-         $.post ( "adminFunctions.php" , obj , function ( data ) {
-            decode ( data );
-         } );
+         ajax ( obj );
       }
    </script>
     <style>
@@ -107,10 +84,28 @@
            50% { background-color: #fbf8b2; }
            100% { background-color: none; }
        }
+
+      .header-angle{
+         -ms-transform: rotate(-445deg);
+         -moz-transform: rotate(-45deg);
+         -webkit-transform: rotate(-45deg);
+         transform: rotate(-45deg);
+         -ms-transform-origin: left top 0;
+         -moz-transform-origin: left top 0;
+         -webkit-transform-origin: left top 0;
+         transform-origin: left top 0;
+         margin-top:40px;
+         #margin-left: 40px;
+         #padding: 20px;
+         padding-bottom:-10px;
+         float: left;
+         font-weight:bold;
+}
     </style>
   </head>
   <body onload='admin()'>
-    <h1>FWMSH Exhibit Dashboard Administration</h1>
+    <h1>Museum School Online Registration Administration</h1>
+    <div id='menu'>&nbsp;</div>
     <div id='response'>&nbsp;</div>
 
   <div class="modal fade" tabindex="-1" role="dialog" id='modal'>
