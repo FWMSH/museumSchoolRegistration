@@ -130,30 +130,44 @@
       {
          $this->checkLogin();
 
+         if ( isset ( $_POST [ 'childName' ] ) ) $childName = $_POST [ 'childName' ];
+         if ( isset ( $_POST [ 'gender' ] ) )
+         {
+            if ( $_POST [ 'gender' ] = "MALE" ) $maleSelected = "selected";
+            if ( $_POST [ 'gender' ] = "FEMALE" ) $femaleSelected = "selected";
+         }
+         if ( isset ( $_POST [ 'birthday' ] ) ) $birthday = $_POST [ 'birthday' ];
+
          $title = "<h4>New Family Member</h4>";
-         $html = "<div class='container-fluid'>";
+         $html = "<div class='well' id='message'>Add each child here.  Once added child info can not be changed.  If this is the first museum school class your child has attended you will be required to show a birth certificate to register.  If you discover any errors please contact the office at [number] to correct them.</div>";
+         $html .= "<div class='container-fluid'>";
+         $html .= "<div class='row' id='messageDiv'>";
+
+         $html .= "</div>";
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-2' style='text-align:right;'>Child's Name</div>";
-         $html .= "<div class='col-md-4'><input type='text' class='form-control' id='childName'></div>";
+         $html .= "<div class='col-md-4' style='text-align:right;'>Child's Name<br>(include last name if different)</div>";
+         $html .= "<div class='col-md-6'><input type='text' class='form-control' id='childName' value='".$childName."'></div>";
+         $html .= "<div class='col-md-2' id='confirmName'></div>";
          $html .= "</div>";	// End Row;
 
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-2' style='text-align:right;'>Gender</div>";
-         $html .= "<div class='col-md-4'>";
-         $html .= "<input type='radio' name='gender' id='childMale' value='MALE'>Male";
-         $html .= "<input type='radio' name='gender' id='childFemale' value='FEMALE'>Female";
+         $html .= "<div class='col-md-4' style='text-align:right;'>Gender</div>";
+         $html .= "<div class='col-md-6'>";
+         $html .= "<input type='radio' name='gender' id='childMale' value='MALE' ".$maleSelected.">Male ";
+         $html .= "<input type='radio' name='gender' id='childFemale' value='FEMALE' ".$femaleSelected.">Female";
          $html .= "</div>";	// End column;
+         $html .= "<div class='col-md-2' id='confirmGender'></div>";
          $html .= "</div>";	// End Row;
 
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-2' style='text-align:right;'>Birthday</div>";
-         $html .= "<div class='col-md-4'><input type='date' class='form-control' id='childBirthday'></div>";
+         $html .= "<div class='col-md-4' style='text-align:right;'>Birthday</div>";
+         $html .= "<div class='col-md-6'><input type='date' class='form-control' id='childBirthday' value='".$birthday."'></div>";
+         $html .= "<div class='col-md-2' id='confirmBirthday'></div>";
          $html .= "</div>";	// End Row;
-
          $html .= "</div>";	// End Container;
 
          $buttons = "<button type=\"button\" class=\"btn btn-default\" data-dismiss=\"modal\">Cancel</button>";
-         $buttons .= "<button type=\"button\" class=\"btn btn-primary\" onclick='processAddFamily()'>Add Family Member</button>";
+         $buttons .= "<button type=\"button\" id='addFamilyButton' class=\"btn btn-primary\" onclick='processAddFamily()'>Add Family Member</button>";
 
          $this->responseHTML ( "modalBody" , $html );
          $this->responseHTML ( "modalTitle" , $title );
@@ -166,6 +180,19 @@
       {
          $this->checkLogin();
 
+         $message = "<div class='alert alert-info' role='alert'>";
+         $message .= "  Please double check all information and check all 3 correct boxes.  Once submitted child info can not be changed.";
+         $message .= "</div>";
+
+         if ( !isset ( $_POST [ 'confirmed' ] ) )
+         {
+            $this->responseHTML ( "message" , $message );
+            $this->responseHTML ( "confirmName" , "<input type='checkbox' id='checkConfirmName' onclick='checkCorrect()'> Correct" );
+            $this->responseHTML ( "confirmGender" , "<input type='checkbox' id='checkConfirmGender' onclick='checkCorrect()'> Correct" );
+            $this->responseHTML ( "confirmBirthday" , "<input type='checkbox' id='checkConfirmBirthday' onclick='checkCorrect()'> Correct" );
+            $this->send();
+         }
+ 
          $sql = "INSERT INTO `children` ( `parentID` , `childName` , `gender` , `birthday` ) VALUES ( :parent , :child , :gender , :birthday )";
          $query = $this->db->prepare ( $sql );
          $query->bindValue ( ":parent" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );

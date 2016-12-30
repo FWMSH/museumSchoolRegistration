@@ -25,6 +25,7 @@
 
       clockRunning = false;
       ticker = setInterval ( tick , 1000 );
+      childConfirmed = false;
 
       function decode ( json )
       {
@@ -73,6 +74,27 @@
 
       }
 
+      function checkCorrect()
+      {
+         checkCount = 0;
+         if ( $ ( "#checkConfirmName" ).prop ( "checked" ) ) checkCount += 1;
+         if ( $ ( "#checkConfirmGender" ).prop ( "checked" ) ) checkCount += 1;
+         if ( $ ( "#checkConfirmBirthday" ).prop ( "checked" ) ) checkCount += 1;
+
+         if ( checkCount == 3 )
+         {
+            childConfirmed = true;
+            $ ( "#addFamilyButton" ).removeClass ( "btn-primary" );
+            $ ( "#addFamilyButton" ).addClass ( "btn-success" );
+         }
+         else
+         {
+            childConfirmed = false;
+            $ ( "#addFamilyButton" ).addClass ( "btn-primary" );
+            $ ( "#addFamilyButton" ).removeClass ( "btn-success" );
+         }
+      }
+
       function processAddFamily()
       {
          obj = new Object();
@@ -80,6 +102,7 @@
          obj.childName = $ ( "#childName" ).val();
          obj.gender = $ ( "input[name=gender]:checked" ).val();
          obj.birthday = $ ( "#childBirthday" ).val();
+         if ( childConfirmed == true ) obj.confirmed = true;
 
          $.post ( "classFunctions.php" , obj , function ( data ) {
             decode ( data );

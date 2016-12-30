@@ -11,6 +11,7 @@
          {
             case "ADMIN":$this->admin();break;
             case "CLASSES":$this->classes();break;
+            case "CLASSDETAILS":$this->classDetails();break;
          }
       }
 
@@ -79,16 +80,16 @@ html;
 
          $html = "<div class='container-fluid'>";
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-1 header-angle'>Class Type</div>";
-         $html .= "<div class='col-md-1 header-angle'>Class Name</div>";
-         $html .= "<div class='col-md-1 header-angle'>Age</div>";
-         $html .= "<div class='col-md-1 header-angle'>Meeting Days</div>";
-         $html .= "<div class='col-md-2 header-angle'>Start Date<br>Start Time</div>";
-         $html .= "<div class='col-md-2 header-angle'>End Date<br>End Time</div>";
-         $html .= "<div class='col-md-1 header-angle'>Cost</div>";
-         $html .= "<div class='col-md-1 header-angle'>Max Size</div>";
-         $html .= "<div class='col-md-1 header-angle'>Current<br>Enrollment</div>";
-         $html .= "<div class='col-md-1 header-angle'>Status</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Class Type</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Class Name</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Age</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Meeting Days</div>";
+         $html .= "<div class='col-md-2 ' style='font-weight:bold;'>Start Date<br>Start Time</div>";
+         $html .= "<div class='col-md-2 ' style='font-weight:bold;'>End Date<br>End Time</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Cost</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Max Size</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Current<br>Enrollment</div>";
+         $html .= "<div class='col-md-1 ' style='font-weight:bold;'>Status</div>";
          $html .= "</div>";	// End Row
          while ( $class = $result->fetch ( PDO::FETCH_ASSOC ) )
          {
@@ -111,7 +112,7 @@ enrollment;
             $startDate = DateTime::createFromFormat ( "Y-m-d" , $class [ 'StartDate' ] )->format ( "n-d-Y" );
             $endDate = DateTIme::createFromFormat ( "Y-m-d" , $class [ 'EndDate' ] )->format ( "n-d-Y" ); 
 
-            $html .= "<div class='row'>";
+            $html .= "<div class='row' onclick='classDetails ( ".$class [ 'ID' ]." )'>";
             $html .= "<div class='col-md-1'>".$class [ 'classType' ]."</div>";
             $html .= "<div class='col-md-1'>".$class [ 'ClassName' ]."</div>";
             $html .= "<div class='col-md-1'>".$class [ 'Age' ]."</div>";
@@ -128,6 +129,128 @@ enrollment;
 
          $this->responseHTML ( "response" , $html );
          $this->send();
+      }
+
+      function classDetails()
+      {
+         $sql = "SELECT * FROM `classes` WHERE `ID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_POST [ 'classID' ] , PDO::PARAM_INT );
+         $query->execute();
+         $class = $query->fetch ( PDO::FETCH_ASSOC );
+
+         $classSelected = "";
+         $addonSelected = "";
+         if ( $class [ 'classType' ] == "CLASS" ) $classSelected = "CHECKED";
+         if ( $class [ 'classType' ] == "ADDON" ) $addonSelected = "CHECKED";
+
+         $days = explode ( "," , $class [ 'MeetingDays' ] );
+
+         $classSunday = "";
+         $classMonday = "";
+         $classTuesday = "";
+         $classWednesday = "";
+         $classThursday = "";
+         $classFriday = "";
+         $classSaturday = "";
+
+         if ( array_search ( "SUNDAY" , $days ) == True ) $classSunday = "CHECKED";
+         if ( array_search ( "MONDAY" , $days ) == True ) $classMonday = "CHECKED";
+         if ( array_search ( "TUESDAY" , $days ) == True ) $classTuesday = "CHECKED";
+         if ( array_search ( "WEDNESDAY" , $days ) == True ) $classWednesday = "CHECKED";
+         if ( array_search ( "THURSDAY" , $days ) == True ) $classThursday = "CHECKED";
+         if ( array_search ( "FRIDAY" , $days ) == True ) $classFriday = "CHECKED";
+         if ( array_search ( "SATURDAY" , $days ) == True ) $classSaturday = "CHECKED";
+
+         $title = "<h4>Class Details -- ".$class [ 'ClassName' ]."</h4>";
+         $html = "<div class='container-fluid'>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4' style='font-weight:bold;'>Class Name</div>";
+         $html .= "<div class='col-md-8'><input type='text' class='form-control' id='className' value='".$class [ 'ClassName' ]."'></div>";
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4'>";
+         $html .= "<b>Class Type</b><br>";
+         $html .= "<input type='radio' name='typeClass' id='typeClass' value='CLASS' ".$classSelected."> Class <input type='radio' name='typeClass' id='typeClass' value='ADDON' ".$addonSelected."> Add On";
+         $html .= "</div>";	// End Column
+         $html .= "<div class='col-md-8'>";
+         $html .= "Put Corequisite information here as applicable";
+         $html .= "</div>";	// End Column
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div style='font-weight:bold;'>Long Description</div>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-12'>";
+         $html .= "<textarea class='form-control' id='fullDescription'>".$class [ 'ClassDescription' ]."</textarea>";
+         $html .= "</div>";	// End Column
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-12'>";
+         $html .= "<div style='font-weight:bold;'>Short Description</div>";
+         $html .= "<textarea class='form-control' id='shortDescription'>".$class [ 'ShortDescription' ] ."</textarea>";
+         $html .= "</div>";	// End Column
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4'><b>Age(s)</b></div>";
+         $html .= "<div class='col-md-8'>".$class [ 'Age' ]."</div>";
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-12'><b>Dates and Times</b></div>";
+         $html .= "</div>";	// End Row
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-6'><b>Start Date</b><br><input type='date' id='startDate' value='".$class [ 'StartDate' ]."'></div>";
+         $html .= "<div class='col-md-6'><b>End Date</b><br><input type='date' id='endDate' value='".$class [ 'EndDate' ]."'></div>";
+         $html .= "</div>";	// End Row
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-6'><b>Start Time</b><br><input type='time' id='startTime' value='".$class [ 'StartTime' ]."'></div>";
+         $html .= "<div class='col-md-6'><b>End Time</b><br><input type='time' id='endTime' value='".$class [ 'EndTime' ]."'></div>";
+         $html .= "</div>";	// End Row
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-6'><b>Early Registration Start</b><br><input type='date' id='earlyRegistrationDate' value='".$class [ 'earlyRegistrationStart' ]."'></div>";
+         $html .= "<div class='col-md-6'><b>Registration Start</b><br><input type='date' id='registrationDate' value='".$class [ 'registrationStart' ]."'></div>";
+         $html .= "</div>";	// End Row
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-6'><b>Full Payment Deadline</b><br><input type='date' id='fullPayment' value='".$class [ 'fullPayment' ]."'></div>";
+         $html .= "<div class='col-md-6'><b>Age Cutoff</b><br><input type='date' id='ageCutoff' value='".$class [ 'ageCutoff' ]."'></div>";
+         $html .= "</div>";	// End Row
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-6'><b>No Class Dates</b><br>No Class Fields Here</div>";
+         $html .= "<div class='col-md-6'><b>Meeting Days</b><br>";
+         $html .= "<input type='checkbox' id='meetSunday' ".$classSunday."> Sunday<br>";
+         $html .= "<input type='checkbox' id='meetMonday' ".$classMonday."> Monday<br>";
+         $html .= "<input type='checkbox' id='meetTuesday' ".$classTuesday."> Tuesday<br>";
+         $html .= "<input type='checkbox' id='meetWednesday' ".$classWednesday."> Wednesday<br>";
+         $html .= "<input type='checkbox' id='meetThursday' ".$classThursday."> Thursday<br>";
+         $html .= "<input type='checkbox' id='meetFriday' ".$classFriday."> Friday<br>";
+         $html .= "<input type='checkbox' id='meetSaturday' ".$classSaturday."> Saturday<br>";
+         $html .= "</div>";	// End Column
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4' style='font-weight:bold;'>Class Tuition</div>";
+         $html .= "<div class='col-md-8'>";
+         $html .= "<div class='input-group'>";
+         $html .= "<span class='input-group-addon'>$</span>";
+         $html .= "<input type='text' class='form-control' value='".$class [ 'Cost' ]."'>";
+         $html .= "</div>";	// End Input Group
+         $html .= "</div>";	// End Column
+         $html .= "</div>";	// End Row
+         $html .= "<hr>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4'><b>Maximum Class Size</b></div>";
+         $html .= "<div class='col-md-8'><input type='integer' class='form-control' id='maxSize' value='".$class [ 'MaximumSize' ]."'></div>";
+         $html .= "</div>";	// End Row
+         $html .= "</div>";	// End Container
+
+         $this->responseHTML ( "modalTitle" , $title );
+         $this->responseHTML ( "modalBody" , $html );
+         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"show\" );" );
+         $this->send();
+
       }
    }
 

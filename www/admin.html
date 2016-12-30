@@ -54,6 +54,16 @@
 
          ajax ( obj );
       }
+
+      function classDetails ( classID )
+      {
+         obj = new Object();
+         obj.action = "CLASSDETAILS";
+         obj.classID = classID;
+
+         ajax ( obj );
+      }
+
    </script>
     <style>
        .flash {
