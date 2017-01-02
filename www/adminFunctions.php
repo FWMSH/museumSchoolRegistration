@@ -154,13 +154,31 @@ enrollment;
          $classFriday = "";
          $classSaturday = "";
 
-         if ( array_search ( "SUNDAY" , $days ) == True ) $classSunday = "CHECKED";
-         if ( array_search ( "MONDAY" , $days ) == True ) $classMonday = "CHECKED";
-         if ( array_search ( "TUESDAY" , $days ) == True ) $classTuesday = "CHECKED";
-         if ( array_search ( "WEDNESDAY" , $days ) == True ) $classWednesday = "CHECKED";
-         if ( array_search ( "THURSDAY" , $days ) == True ) $classThursday = "CHECKED";
-         if ( array_search ( "FRIDAY" , $days ) == True ) $classFriday = "CHECKED";
-         if ( array_search ( "SATURDAY" , $days ) == True ) $classSaturday = "CHECKED";
+         if ( array_search ( "SUNDAY" , $days ) !== False ) $classSunday = "CHECKED";
+         if ( array_search ( "MONDAY" , $days ) !== False ) $classMonday = "CHECKED";
+         if ( array_search ( "TUESDAY" , $days ) !== False ) $classTuesday = "CHECKED";
+         if ( array_search ( "WEDNESDAY" , $days ) !== False ) $classWednesday = "CHECKED";
+         if ( array_search ( "THURSDAY" , $days ) !== False ) $classThursday = "CHECKED";
+         if ( array_search ( "FRIDAY" , $days ) !== False ) $classFriday = "CHECKED";
+         if ( array_search ( "SATURDAY" , $days ) !== False ) $classSaturday = "CHECKED";
+
+         $noClass = explode ( "\n" , $class [ 'noClassDates' ] );
+         $noClassHTML = "";
+
+         foreach ( $noClass AS $classDay )
+         {
+            $dtParts = explode ( "/" , $classDay );
+            $month = intval ( $dtParts [ 0 ] );
+            $day = intval ( $dtParts [ 1 ] );
+            $year = $dtParts [ 2 ];
+
+            if ( strlen ( trim ( $year ) ) == 2 ) $year = "20".$year;
+            
+            $dt = new DateTime();
+            $dt->setDate ( intval ( $year ) , $month , $day );
+
+            $noClassHTML .= $dt->format ( "F jS, Y" )."<br>";
+         }
 
          $title = "<h4>Class Details -- ".$class [ 'ClassName' ]."</h4>";
          $html = "<div class='container-fluid'>";
@@ -218,7 +236,7 @@ enrollment;
          $html .= "<div class='col-md-6'><b>Age Cutoff</b><br><input type='date' id='ageCutoff' value='".$class [ 'ageCutoff' ]."'></div>";
          $html .= "</div>";	// End Row
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-6'><b>No Class Dates</b><br>No Class Fields Here</div>";
+         $html .= "<div class='col-md-6'><b>No Class Dates</b><br>".$noClassHTML."</div>";
          $html .= "<div class='col-md-6'><b>Meeting Days</b><br>";
          $html .= "<input type='checkbox' id='meetSunday' ".$classSunday."> Sunday<br>";
          $html .= "<input type='checkbox' id='meetMonday' ".$classMonday."> Monday<br>";
