@@ -193,6 +193,19 @@
          } );
       }
 
+      function recalculateTotal ( checkbox , type )
+      {
+         obj = new Object();
+         obj.action = "RECALCULATETOTAL";
+         obj.name = checkbox.name;
+         obj.value = checkbox.value;
+         obj.type = type;
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
       function checkout ( amount )
       {
          obj = new Object();
