@@ -20,6 +20,9 @@
             case "CHECKOUT":$this->checkout();break;
             case "SUCCESFULPAYMENT":$this->succesfulPayment();break;
             case "RECALCULATETOTAL":$this->recalculateTotal();break;
+            case "REMOVEADULT":$this->removeAdult();break;
+            case "ADDADULT":$this->addAdult();break;
+            case "PROCESSADDADULT":$this->processAddAdult();break;
          }
       }
 
@@ -71,9 +74,9 @@
          {
             $family .= "<div class='container-fluid'>";
             $family .= "<div class='row'>";
-            $family .= "<div class='col-md-4' style='font-weight:bold;'>Name</div>";
-            $family .= "<div class='col-md-1' style='font-weight:bold;'>Gender</div>";
-            $family .= "<div class='col-md-1' style='font-weight:bold;'>Age</div>";
+            $family .= "<div class='col-md-6' style='font-weight:bold;'>Name</div>";
+            $family .= "<div class='col-md-3' style='font-weight:bold;'>Gender</div>";
+            $family .= "<div class='col-md-3' style='font-weight:bold;'>Age</div>";
             $family .= "</div>";
             while ( $child = $query->fetch ( PDO::FETCH_ASSOC ) )
             {
@@ -86,14 +89,34 @@
                else $ageString = $age->format ( "%y" )." years";
 
                $family .= "<div class='row'>";
-               $family .= "<div class='col-md-4'>".$child [ 'childName' ]."</div>";
-               $family .= "<div class='col-md-1'>".substr ( $child [ 'gender' ] , 0 , 1 )."</div>";
-               $family .= "<div class='col-md-2'>".$ageString."</div>";
+               $family .= "<div class='col-md-6'>".$child [ 'childName' ]."</div>";
+               $family .= "<div class='col-md-3'>".substr ( $child [ 'gender' ] , 0 , 1 )."</div>";
+               $family .= "<div class='col-md-3'>".$ageString."</div>";
                $family .= "</div>";	// End Row
             }
          }
          $family .= "</div>";	// End Container
          $family .= "<button class='btn btn-primary' onclick='addFamily()'><span class='glyphicon glyphicon-plus-sign'></span> Add a Child</button>";
+
+         $sql = "SELECT * FROM `family` WHERE `userID` = ?";
+         $familyQuery = $this->db->prepare ( $sql );
+         $familyQuery->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $familyQuery->execute();
+         
+         $adults = "<h4>Adults</h4>";
+         $adults .= "<hr>";
+         $adults .= "<div class='container-fluid'>";
+         while ( $adult = $familyQuery->fetch ( PDO::FETCH_ASSOC ) )
+         {
+            $adults .= "<div classs='row'>";
+            $adults .= "<div class='col-md-6'>".$adult [ 'name' ]."</div>";
+            $adults .= "<div class='col-md-4'>".$adult [ 'relation' ]."</div>";
+            if ( $adult [ 'primary' ] == 1 ) $adults .= "<div class='col-md-2'>Account Holder</div>";
+            if ( $adult [ 'primary' ] != 1 ) $adults .= "<div class='col-md-2'><button class='btn btn-danger btn-xs' onclick='removeAdult ( ".$adult [ 'ID' ]." )'><span class='glyphicon glyphicon-remove'></span> Remove</button></div>";
+            $adults .= "</div>";	// End Row
+         }
+         $adults .= "</div>";		// End Container
+         $adults .= "<button class='btn btn-primary' onclick='addAdult()'><span class='glyphicon glyphicon-plus-sign'></span> Add an Adult</button>";
 
          $myClasses = "<h4>My Classes ";
          $myClasses .= "<span id='clock' style='color:blue;'></span>";
@@ -112,9 +135,15 @@
          $html = "<h1>FWMSH Museum School Class Registration</h1>";
          $html .= "<div class='container-fluid'>";
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-6'>";
+         $html .= "<div class='col-md-3'>";
          $html .= $family;
          $html .= "</div>";	// End Column
+         $html .= "<div class='container-fluid'>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-3'>";
+         $html .= $adults;
+         $html .= "</div>";	// End Column
+        
          $html .= "<div class='col-md-6'>";
          $html .= $myClasses;
          $html .= "</div>";	// End Column
@@ -174,6 +203,86 @@
          $this->responseHTML ( "modalTitle" , $title );
          $this->responseHTML ( "modalFooter" , $buttons );
          $this->responseScript ( "$ ( \"#modal\" ).modal ( \"show\" );" );
+         $this->send();
+      }
+
+      function addAdult()
+      {
+         $this->checkLogin();
+
+         $title = "<h4>New Adult</h4>";
+         $html = "<div class='well' id='message'>Add adults here.  An adult listed here will be able to pick up your children and talk with the office about your account</div>";
+         $html .= "<div class='container-fluid'>";
+         $html .= "<div class='row' id='messageDiv'>";
+
+         $html .= "</div>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4' style='text-align:right;'>Adult's Full Name<br></div>";
+         $html .= "<div class='col-md-8'><input type='text' class='form-control' id='adultName' value='".$adultName."'></div>";
+         $html .= "</div>";	// End Row;
+
+         $html .= "</div>";
+         $html .= "<div class='row'>";
+         $html .= "<div class='col-md-4' style='text-align:right;'>Family relationship<br></div>";
+         $html .= "<div class='col-md-8'><input type='text' class='form-control' id='relation' value='".$relation."'></div>";
+         $html .= "</div>";	// End Row;
+
+         $buttons = "<button type=\"button\" class=\"btn btn-default\" data-dismiss=\"modal\">Cancel</button>";
+         $buttons .= "<button type=\"button\" id='addFamilyButton' class=\"btn btn-primary\" onclick='processAddAdult()'>Add Adult</button>";
+
+         $this->responseHTML ( "modalBody" , $html );
+         $this->responseHTML ( "modalTitle" , $title );
+         $this->responseHTML ( "modalFooter" , $buttons );
+         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"show\" );" );
+         $this->send();
+      }
+
+      function processAddAdult()
+      {
+         $this->checkLogin();
+
+         $sql = "INSERT INTO `family` ( `userID` , `name` , `relation` , `primary` ) VALUES ( :user , :name , :relation , 0 )";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":name" , $_POST [ 'name' ] , PDO::PARAM_STR );
+         $query->bindValue ( ":relation" , $_POST [ 'relation' ] , PDO::PARAM_STR );
+         $query->execute();
+
+         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"hide\" );" );
+         $this->responseScript ( "home()" );
+         $this->send();
+      }
+
+      function removeAdult()
+      {
+         if ( $_POST [ 'confirm' ] == 1 )
+         {
+            $sql = "DELETE FROM `family` WHERE `ID` = ? LIMIT 1";
+            $query = $this->db->prepare ( $sql );
+            $query->bindValue ( 1 , $_POST [ 'adultID' ] , PDO::PARAM_INT );
+            $query->execute();
+
+            $this->responseScript ( "home()" );
+            $this->responseScript ( "$ ( \"#modal\" ).modal ( \"hide\" )" );
+            $this->send();
+         }
+
+         $sql = "SELECT * FROM `family` WHERE `ID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_POST [ 'adultID' ] , PDO::PARAM_INT );
+         $query->execute();
+         $adult = $query->fetch ( PDO::FETCH_ASSOC );
+
+         $title = "<h4>Remove Adult</h4>";
+         $html = "<div>Really remove ".$adult [ 'name' ]."?</div>";
+         $html .= "<div>They will not be able to pick up any children or interact with your account in any way.</div>";
+         $buttons = "<input type='button' class='btn btn-danger' value='Remove' onclick='removeAdult ( ".$_POST [ 'adultID' ]." , 1 )'>";
+         $buttons .= "<input type='button' class='btn btn-default' value='Cancel' data-dismiss=\"modal\">";
+
+         $this->responseHTML ( "modalTitle" , $title );
+         $this->responseHTML ( "modalBody" , $html );
+         $this->responseHTML ( "modalFooter" , $buttons );
+         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"show\" )" );
          $this->send();
       }
 
@@ -533,7 +642,42 @@
          $expiration = new DateTime ( "now" );
          $expiration->add ( new DateInterval ( "PT30M" ) );
 
-         $sql = "SELECT * FROM `registration` WHERE `userID` = :user AND `childID` = :child AND `classID` = :class AND ( `expirationTime` > NOW() OR `status` = 'PAID' OR `status` = 'PAIDHALF' )";
+         $sql = "SELECT * FROM `classes` WHERE `ID` = ?";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( 1 , $_POST [ 'classID' ] , PDO::PARAM_INT );
+         $query->execute();
+         $potentialClass = $query->fetch ( PDO::FETCH_ASSOC );
+
+         $sql = "SELECT registration.* , classes.ClassName FROM `registration` LEFT JOIN classes ON registration.classID=classes.ID WHERE `userID` = :user AND `childID` = :child AND ( `expirationTime` > NOW() OR `status` = 'PAID' OR `status` = 'DEPOSIT' )";
+         $query = $this->db->prepare ( $sql );
+         $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+         $query->bindValue ( ":child" , $_POST [ 'childID' ] , PDO::PARAM_INT );
+         $query->execute();
+
+         if ( $query->rowCount() != 0 )
+         {
+            while ( $class = $query->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               if ( $class [ 'ClassName' ] == $potentialClass [ 'ClassName' ] )
+               {
+                  $sql = "SELECT * FROM `children` WHERE `ID` = ?";
+                  $query = $this->db->prepare ( $sql );
+                  $query->bindValue ( 1 , $_POST [ 'childID' ] , PDO::PARAM_INT );
+                  $query->execute();
+                  $child = $query->fetch ( PDO::FETCH_ASSOC );
+
+                  $html = "<div class='alert alert-warning alert-dismissible' role='alert'>";
+                  $html .= "  <button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>&times;</span></button>";
+                  $html .=    $child [ 'childName' ]." is already in a ".$class [ 'ClassName' ]." class!";
+                  $html .= "</div>";
+
+                  $this->responseScript ( "$ ( '#modalBody' ).prepend ( \"".$html."\" )" );
+                  $this->send();
+               }
+            }
+         }
+
+         $sql = "SELECT * FROM `registration` WHERE `userID` = :user AND `childID` = :child AND `classID` = :class AND ( `expirationTime` > NOW() OR `status` = 'PAID' OR `status` = 'DEPOSIT' )";
          $query = $this->db->prepare ( $sql );
          $query->bindValue ( ":user" , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
          $query->bindValue ( ":child" , $_POST [ 'childID' ] , PDO::PARAM_INT );
@@ -777,7 +921,7 @@
          while ( $item = $query->fetch ( PDO::FETCH_ASSOC ) )
          {
             if ( $item [ 'type' ] == "CLASS" || $item [ 'type' ] == "ADDON" ) $total += intval ( $item [ 'amount' ] );
-            else if ( $item [ 'type' ] == "DEPOSIT" || $item [ 'type' ] == "FULLPAY" ) $total -= intval ( $item [ 'amount' ] );
+            else if ( $item [ 'type' ] == "DEPOSIT" || $item [ 'type' ] == "FULLPAY" || $item [ 'type' ] == "PAYMENT" ) $total -= intval ( $item [ 'amount' ] );
 
             $sql = "SELECT * FROM `registration` WHERE `ID` = ?";
             $registrationQuery = $this->db->prepare ( $sql );
@@ -798,17 +942,38 @@
             $child = $childQuery->fetch ( PDO::FETCH_ASSOC );
 
             $html .= "<div class='row'>";
-            if ( $item [ 'type' ] == "CLASS" || $item [ 'type' ] == "ADDON" ) $html .= "<div class='col-md-5'>".$class [ 'ClassName' ]." for ".$child [ 'childName' ]."</div>";
-            if ( $item [ 'type' ] == "DEPOSIT" || $item [ 'type' ] == "FULLPAY" ) $html .= "<div class='col-md-5'>Payment -- Thank you!</div>";
+            if ( $item [ 'type' ] == "CLASS" || $item [ 'type' ] == "ADDON" ) $html .= "<div class='col-md-4'>".$class [ 'ClassName' ]." for ".$child [ 'childName' ]."</div>";
+            if ( $item [ 'type' ] == "DEPOSIT" || $item [ 'type' ] == "FULLPAY" || $item [ 'type' ] == "PAYMENT" ) $html .= "<div class='col-md-4'>Payment -- Thank you!</div>";
             $html .= "<div class='col-md-1'>".$item [ 'type' ]."</div>";
             $html .= "<div class='col-md-1'>$".$item [ 'amount' ]."</div>";
             if ( $item [ 'status' ] == "DEPOSIT" )
             {
                $html .= "<div class='col-md-2'><input type='radio' name='payment".$item [ 'registrationID' ]."' value='". ( $item [ 'amount' ] - 100 ) ."' onchange='recalculateTotal ( this , \"FULLPAY\" )' CHECKED>Pay Balance</div>";
+               $html .= "<div class='col-md-2'><input type='radio' name='payment".$item [ 'registrationID' ]."' value='". intval ( ( $item [ 'amount' ] - 100 ) / 2 ) ."' onchange='recalculateTotal ( this , \"PAYMENT\" )'>Make $".intval ( ( $item [ 'amount' ] - 100 ) / 2 )." payment</div>";
                $html .= "<div class='col-md-2'><input type='radio' name='payment".$item [ 'registrationID' ]."' value='0' onchange='recalculateTotal ( this , \"NOPAY\" )'>Do not pay now</div>";
                $_SESSION [ 'checkoutItems' ] [ $item [ 'registrationID' ] ] = array ( intval ( $item [ 'amount' ] - 100 ) , "FULLPAY" );
                $paymentTotal += intval ( $item [ 'amount' ] - 100 );
             }
+            else if ( $item [ 'status' ] == "PAYMENT" )
+            {
+               $sql = "SELECT * FROM `paymentItems` WHERE `registrationID` = ?";
+               $payQuery = $this->db->prepare ( $sql );
+               $payQuery->bindValue ( 1 , $item [ 'registrationID' ] , PDO::PARAM_INT );
+               $payQuery->execute();
+               $payments = 0;
+               while ( $payment = $payQuery->fetch ( PDO::FETCH_ASSOC ) )
+               {
+                  if ( $payment [ 'type' ] == 'DEPOSIT' || $payment [ 'type' ] == 'PAYMENT' ) $payments += intval ( $payment [ 'amount' ] );
+                  if ( $payment [ 'type' ] == 'CLASS' || $payment [ 'type' ] == 'ADDON' ) $due = intval ( $payment [ 'amount' ] );
+               }
+               $balance = $due - $payments;
+
+               $html .= "<div class='col-md-2'><input type='radio' name='payment".$item [ 'registrationID' ]."' value='".$balance."' onchange='recalculateTotal ( this , \"FULLPAY\" )' CHECKED>Pay $".$balance." Balance</div>";
+               $html .= "<div class='col-md-2'><input type='radio' name='payment".$item [ 'registrationID' ]."' value='0' onchange='recalculateTotal ( this , \"NOPAY\" )'>Do not pay now</div>";
+               $_SESSION [ 'checkoutItems' ] [ $item [ 'registrationID' ] ] = array ( $balance , "FULLPAY" );
+               $paymentTotal += intval ( $balance );
+            }
+
             else if ( $item [ 'status' ] != "PAID" )
             {
                $html .= "<div class='col-md-2'><input type='radio' name='payment".$item [ 'registrationID' ]."' value='".$item [ 'amount' ]."' onchange='recalculateTotal ( this , \"FULLPAY\" )' CHECKED>Fulll Payment</div>";
@@ -934,6 +1099,7 @@
 
             if ( $item [ 1 ] == "FULLPAY" ) $status = "PAID";
             if ( $item [ 1 ] == "DEPOSIT" ) $status = "DEPOSIT";
+            if ( $item [ 1 ] == "PAYMENT" ) $status = "PAYMENT";
 
             $sql = "UPDATE `paymentItems` SET `status` = ? WHERE `registrationID` = ? AND `type` = 'CLASS' OR `status` = 'ADDON'";
             $query = $this->db->prepare ( $sql );

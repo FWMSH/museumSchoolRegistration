@@ -64,6 +64,88 @@
          ajax ( obj );
       }
 
+      function updateField ( classID , fieldID , value )
+      {
+         obj = new Object();
+         obj.action = "UPDATEFIELD";
+         obj.classID = classID;
+         obj.field = fieldID;
+         obj.value = value;
+
+         ajax ( obj );
+      }
+
+      function addNoClass ( classID )
+      {
+         obj = new Object();
+         obj.action = "ADDNOCLASS";
+         obj.class = classID;
+         obj.date = $ ( "#newNoClass" ).val();
+
+         ajax ( obj );
+      }
+
+      function removeNoClass ( classID , classKey )
+      {
+         obj = new Object();
+         obj.action = "REMOVENOCLASS";
+         obj.class = classID;
+         obj.key = classKey;
+
+         ajax ( obj );
+      }
+
+      function newClass()
+      {
+         obj = new Object();
+         obj.action = "NEWCLASS";
+
+         ajax ( obj );
+      }
+
+      function people()
+      {
+         obj = new Object();
+         obj.action = "PEOPLE";
+
+         ajax ( obj );
+      }
+
+      function payments()
+      {
+         obj = new Object();
+         obj.action = "PAYMENTS";
+
+         ajax ( obj );
+      }
+
+      function childDetail ( child )
+      {
+         obj = new Object();
+         obj.action = "CHILDDETAIL";
+         obj.childID = child;
+
+         ajax ( obj );
+      }
+
+      function childDetail ( child )
+      {
+         obj = new Object();
+         obj.action = "CHILDDETAIL";
+         obj.childID = child;
+
+         ajax ( obj );
+      }
+
+      function verify ( childID , verified )
+      {
+         obj = new Object();
+         obj.action = "VERIFY";
+         obj.childID = childID;
+         obj.verified = verified;
+
+         ajax ( obj );
+      }
    </script>
     <style>
        .flash {

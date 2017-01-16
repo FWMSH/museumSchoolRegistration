@@ -228,6 +228,40 @@
             decode ( data );
          } );
       }
+
+      function removeAdult ( ID , confirmRemove )
+      {
+         obj = new Object();
+         obj.action = "REMOVEADULT";
+         obj.adultID = ID;
+         if ( confirmRemove == 1 ) obj.confirm = confirmRemove;
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function addAdult()
+      {
+         obj = new Object();
+         obj.action = "ADDADULT";
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function processAddAdult()
+      {
+         obj = new Object();
+         obj.action = "PROCESSADDADULT";
+         obj.name = $ ( "#adultName" ).val();
+         obj.relation = $ ( "#relation" ).val();
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
     </script>
 
     <style>
