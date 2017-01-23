@@ -110,12 +110,14 @@
 
       }
 
-      function changeFilter ( id , newValue )
+      function changeFilter ( filter , id , newValue )
       {
          obj = new Object();
          obj.action = "CHANGEFILTER";
+         obj.filter = filter;
          obj.filterID = id;
-         obj.selected = newValue;
+         if ( newValue == false ) obj.selected = 0;
+         else obj.selected = 1;
 
          $.post ( "classFunctions.php" , obj , function ( data ) {
             decode ( data );

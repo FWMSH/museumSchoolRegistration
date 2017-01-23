@@ -318,9 +318,12 @@
       function catalog()
       {
          $this->checkLogin();
-         unset ( $_SESSION [ 'filter' ] );
+         //unset ( $_SESSION [ 'childFilter' ] );
+         //unset ( $_SESSION [ 'ageFilter' ] );
+         //unset ( $_SESSION [ 'dayFilter' ] );
+         //unset ( $_SESSION [ 'classFilter' ] );
 
-         if ( !isset ( $_SESSION [ 'filter' ] ) )
+         if ( !isset ( $_SESSION [ 'childFilter' ] ) )
          {
             $sql = "SELECT * FROM `children` WHERE `parentID` = ?";
             $query = $this->db->prepare ( $sql );
@@ -333,8 +336,31 @@
                $today = new DateTime ( "now" );
                $age = $today->diff ( $bday );
 
-               $_SESSION [ 'filter' ][] = array ( "name"=>$child [ 'childName' ] , "bday"=>$bday , "childID"=>$child [ 'ID' ] , "selected"=>true );
+               $_SESSION [ 'childFilter' ][] = array ( "name"=>$child [ 'childName' ] , "bday"=>$bday , "childID"=>$child [ 'ID' ] , "selected"=>true );
+               $_SESSION [ 'ageFilter' ][] = array ( "age"=>$age->format ( "%y" ) , "selected"=>true );
             }
+         }
+
+         if ( !isset ( $_SESSION [ 'classFilter' ] ) )
+         {
+            $sql = "SELECT DISTINCT `ClassName` FROM `classes` WHERE `classType` = 'CLASS'";
+            $result = $this->db->query ( $sql );
+
+            while ( $class = $result->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               $_SESSION [ 'classFilter' ][] = array ( "class"=>$class [ 'ClassName' ] , "selected"=>true );
+            }
+         }
+
+         if ( !isset ( $_SESSION [ 'dayFilter' ] ) )
+         {
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"SUNDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"MONDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"TUESDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"WEDNESDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"THURSDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"FRIDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"SATURDAY" , "selected"=>true );
          }
 
          $sql = "SELECT * FROM `classes` WHERE `classType` = 'CLASS'";
@@ -342,26 +368,49 @@
          $catalog = "<h4>Class Catalog</h4>";
          $catalog .= "<div class='container-fluid'>";
 
-         /*
-         foreach ( $_SESSION [ 'filter' ] AS $key=>$child )
+         $catalog .= "<div class='row well'>";
+
+         $catalog .= "<div class='col-md-2'><b>Filter by class</b><br>";
+         foreach ( $_SESSION [ 'classFilter' ] AS $key=>$class )
          {
-            $catalog .= "<div class='col-md-2'>";
             $catalog .= "<div>";
-            $catalog .= "<input type='checkbox' onclick='changeFilter ( ".$key." , this.checked )' ";
+            $catalog .= "<input type='checkbox' onclick='changeFilter ( \"class\" , ".$key." , this.checked )' ";
+            if ( $class [ 'selected' ] == true ) $catalog .= "checked";
+            $catalog .= "> ".$class [ 'class' ];
+            $catalog .= "</div>";	// End Checkbox
+         }
+         $catalog .= "</div>";	// End Column
+
+         $catalog .= "<div class='col-md-2'><b>Filter by child</b><br>";
+         foreach ( $_SESSION [ 'childFilter' ] AS $key=>$child )
+         {
+            $catalog .= "<div>";
+            $catalog .= "<input type='checkbox' onclick='changeFilter ( \"child\" , ".$key." , this.checked )' ";
             if ( $child [ 'selected' ] == true ) $catalog .= "checked";
             $catalog .= "> ".$child [ 'name' ];
             $catalog .= "</div>";	// End Checkbox
-            $catalog .= "</div>";	// End Column
          }
+         $catalog .= "</div>";	// End Column
+
+         $catalog .= "<div class='col-md-2'><b>Filter by day</b><br>";
+         foreach ( $_SESSION [ 'dayFilter' ] AS $key=>$day )
+         {
+            $catalog .= "<div>";
+            $catalog .= "<input type='checkbox' onclick='changeFilter ( \"day\" , ".$key." , this.checked )' ";
+            if ( $day [ 'selected' ] == true ) $catalog .= "checked";
+            $catalog .= "> ".$day [ 'day' ];
+            $catalog .= "</div>";	// End Checkbox
+         }
+         $catalog .= "</div>";	// End Column
+
          $catalog .= "</div>";	// End Row
-         */
 
          $catalog .= "<div class='row'>";
          $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Class</div>";
          $catalog .= "<div class='col-md-1' style='font-weight:bold;'>Age</div>";
+         $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Meeting Days</div>";
          $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Start Date / Time</div>";
          $catalog .= "<div class='col-md-2' style='font-weight:bold;'>End Date / Time</div>";
-         $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Meeting Days</div>";
          $catalog .= "<div class='col-md-1' style='font-weight:bold;'>Cost</div>";
          $catalog .= "<div class='col-md-2' style='font-weight:bold;'>Eligible Students</div>";
          $catalog .= "</div>";	// End Row
@@ -373,6 +422,8 @@
             //TODO -- Check attendance and label full classes
 
             $showClass = false;
+            $showClassChild = false;
+            $showClassName = false;
             $allAges = explode ( "," , $class [ 'Age' ] );
             $eligible = array();
 
@@ -381,15 +432,34 @@
                $allAges [ $key ] = intval ( $age );
             }
 
-            foreach ( $_SESSION [ 'filter' ] AS $key=>$child )
+            foreach ( $_SESSION [ 'childFilter' ] AS $key=>$child )
             {
+               if ( $child [ 'selected' ] == False ) continue;
                $cutoff = DateTime::createFromFormat ( "Y-m-d" , $class [ 'ageCutoff' ] );
                $age = abs ( intval ( $cutoff->diff ( $child [ 'bday' ] )->format ( "%y" ) ) );
 
                if ( in_array ( $age , $allAges ) == true )
                {
-                  $showClass = true;
-                  if ( !in_array ( $child , $eligible ) ) $eligible[] = $child [ 'name' ];
+                  $showClassChild = true;
+                  if ( !in_array ( $child [ 'name' ] , $eligible ) ) $eligible[] = $child [ 'name' ];
+               }
+            }
+            if ( $showClassChild == false ) continue;
+
+            foreach ( $_SESSION [ 'classFilter' ] AS $className )
+            {
+               if ( $className [ 'selected' ] == true )
+               {
+                  if ( $class [ 'ClassName' ] == $className [ 'class' ] ) $showClassName = true;
+               }
+            }
+            if ( $showClassName == false ) continue;
+
+            foreach ( $_SESSION [ 'dayFilter' ] AS $day )
+            {
+               if ( $day [ 'selected' ] == true )
+               {
+                  if ( strpos ( $class [ 'MeetingDays' ] , $day [ 'day' ] ) !== False ) $showClass = true;
                }
             }
             if ( $showClass == false ) continue;
@@ -412,10 +482,35 @@
             $spaceQuery->execute();
             $paidHalf = $spaceQuery->rowCount();
 
+            $sql = "SELECT * FROM `children` WHERE `parentID` = ?";
+            $childQuery = $this->db->prepare ( $sql );
+            $childQuery->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+            $childQuery->execute();
+
+            $sql = "SELECT * FROM `registration` WHERE ";
+            while ( $child = $childQuery->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               $sql .= "`childID` = ".$child [ 'ID' ]." OR ";
+            }
+            $sql = substr ( $sql , 0 , -4 );
+            $childResult = $this->db->query ( $sql );
+
+            $classIDs = array();
+            while ( $enrolledChild = $childResult->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               $classIDs[] = $enrolledChild [ 'classID' ];
+            }
+
             $seatsLeft = intval ( $class [ 'MaximumSize' ] ) - $pending - $paid - $paidHalf;
 
-            if ( $seatsLeft == 0 ) $catalog .= "<div class='row bg-danger'>";
+            if ( array_search ( $class [ 'ID' ] , $classIDs ) !== False ) $catalog .= "<div class='row bg-info'>";
+            else if ( $seatsLeft == 0 ) $catalog .= "<div class='row bg-danger'>";
             else $catalog .= "<div class='row row-striped' onclick='classDetails ( ".$class [ 'ID' ]." )'>";
+
+            $startDate = DateTime::createFromFormat ( "Y-m-d" , $class [ 'StartDate' ] )->format ( "F jS, Y" );
+            $endDate = DateTime::createFromFormat ( "Y-m-d" , $class [ 'EndDate' ] )->format ( "F jS, Y" );
+            $startTime = DateTime::createFromFormat ( "H:i:s" , $class [ 'StartTime' ] )->format ( "g:i A" );
+            $endTime = DateTime::createFromFormat ( "H:i:s" , $class [ 'EndTime' ] )->format ( "g:i A" );
 
             $catalog .= "<div class='col-md-2'>";
             $catalog .= "<span class='glyphicon glyphicon-menu-right'></span> ";
@@ -423,9 +518,9 @@
             else $catalog .= $class [ 'ClassName' ]." <b>(Full)</b>";
             $catalog .= "</div>";
             $catalog .= "<div class='col-md-1'>".$class [ 'Age' ]."</div>";
-            $catalog .= "<div class='col-md-2'>".$class [ 'StartDate' ]."<br>".$class [ 'StartTime' ]."</div>";
-            $catalog .= "<div class='col-md-2'>".$class [ 'EndDate' ]."<br>".$class [ 'EndTime' ]."</div>";
             $catalog .= "<div class='col-md-2'>".$class [ 'MeetingDays' ]."</div>";
+            $catalog .= "<div class='col-md-2'>".$startDate."<br>".$startTime."</div>";
+            $catalog .= "<div class='col-md-2'>".$endDate."<br>".$endTime."</div>";
             $catalog .= "<div class='col-md-1'>$".$class [ 'Cost' ]."</div>";
             $catalog .= "<div class='col-md-2'>".implode ( "<br>" , $eligible )."</div>";
             $catalog .= "</div>";	// End Row
@@ -453,7 +548,7 @@
 
          if ( $class [ 'classType' ] == "CLASS" )
          {
-            foreach ( $_SESSION [ 'filter' ] AS $key=>$child )
+            foreach ( $_SESSION [ 'childFilter' ] AS $key=>$child )
             {
                $cutoff = DateTime::createFromFormat ( "Y-m-d" , $class [ 'ageCutoff' ] );
                $age = abs ( intval ( $cutoff->diff ( $child [ 'bday' ] )->format ( "%y" ) ) );
@@ -629,10 +724,20 @@
       {
          $this->checkLogin();
 
-         if ( $_POST [ 'selected' ] == "false" ) $_SESSION [ 'filter' ] [ $_POST [ 'filterID' ] ] [ 'selected' ] = false;
-         else $_SESSION [ 'filter' ] [ $_POST [ 'filterID' ] ] [ 'selected' ] = true;
+         switch ( $_POST [ 'filter' ] )
+         {
+            case ( "class" ):$filter = "classFilter";break;
+            case ( "child" ):$filter = "childFilter";break;
+            case ( "age" ):$filter = "ageFilter";break;
+            case ( "day" ):$filter = "dayFilter";break;
+         }
 
-         $this->home();
+         if ( $_POST [ 'selected' ] == 0 ) $_SESSION [ $filter ] [ $_POST [ 'filterID' ] ] [ 'selected' ] = false;
+         else $_SESSION [ $filter ] [ $_POST [ 'filterID' ] ] [ 'selected' ] = true;
+
+         $this->responseScript ( "home()" );
+         $this->send();
+         //$this->home();
       }
 
       function enroll()
@@ -769,6 +874,9 @@
 
          $total = 0;
          $clockRun = False;
+         $payments = 0;
+         $due = 0;
+
          while ( $cart = $query->fetch ( PDO::FETCH_ASSOC ) )
          {
             $sql = "SELECT * FROM `children` WHERE `ID` = ?";
@@ -783,17 +891,23 @@
             $classQuery->execute();
             $class = $classQuery->fetch ( PDO::FETCH_ASSOC );
 
+            $sql = "SELECT * FROM `paymentItems` WHERE `registrationID` = ?";
+            $payQuery = $this->db->prepare ( $sql );
+            $payQuery->bindValue ( 1 , $cart [ 'ID' ] , PDO::PARAM_INT );
+            $payQuery->execute();
+            $payment = $payQuery->fetch ( PDO::FETCH_ASSOC );
+
             $cartExpiration = DateTime::createFromFormat ( "Y-m-d H:i:s" , $cart [ 'expirationTime' ] );
             $now = new DateTime ( "now" );
 
-            if ( $now > $cartExpiration && $cart [ 'status' ] != "PAID" && $cart [ 'status' ] != "PAIDHALF" )
+            if ( $now > $cartExpiration && $payment [ 'status' ] != "PAID" && $payment [ 'status' ] != "DEPOSIT" && $payment [ 'status' ] != "PAYMENT" )
             {
                // Registration has expired
                $startTag = "<s>";
                $endTag = "</s>";
                $status = "EXPIRED";
             }
-            else if ( $now < $cartExpiration && $cart [ 'status' ] != "PAID" && $cart [ 'status' ] != "PAIDHALF" )
+            else if ( $now < $cartExpiration && $payment [ 'status' ] != "PAID" && $payment [ 'status' ] != "DEPOSIT" && $payment [ 'status' ] != "PAYMENT" )
             {
                // Not expired, not paid
                $startTag = "";
@@ -808,7 +922,7 @@
             {
                $startTag = "";
                $endTag = "";
-               $status = $cart [ 'status' ];
+               $status = $payment [ 'status' ];
             }
 
             if ( $clockRun == True ) $this->responseScript ( "startClock ( ".$timeLeft->format ( "%i" )." , ".$timeLeft->format ( "%s" )." )" );
@@ -834,6 +948,23 @@
 
             $sql = "SELECT * FROM `paymentItems` WHERE `registrationID` = ?";
             $payQuery = $this->db->prepare ( $sql );
+            $payQuery->bindValue ( 1 , $cart [ 'ID' ] , PDO::PARAM_INT );
+            $payQuery->execute();
+
+            while ( $payment = $payQuery->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               if ( $payment [ 'type' ] == 'DEPOSIT' || $payment [ 'type' ] == 'FULLPAY' || $payment [ 'type' ] == 'PAYMENT' )
+               {
+                  if ( $payment [ 'status' ] != "PAID" ) continue;
+                  $payments += intval ( $payment [ 'amount' ] );
+               }
+               if ( $payment [ 'type' ] == 'CLASS' || $payment [ 'type' ] == 'ADDON' ) $due += intval ( $payment [ 'amount' ] );
+            }
+            $balance = $due - $payments;
+
+            /*
+            $sql = "SELECT * FROM `paymentItems` WHERE `registrationID` = ?";
+            $payQuery = $this->db->prepare ( $sql );
             $payQuery->bindValue ( 1 , $cart [ 'classID' ] , PDO::PARAM_INT );
             $payQuery->execute();
             if ( $payQuery->rowCount() > 0 )
@@ -844,6 +975,7 @@
                   $total += intval ( $payment [ 'half2amount' ] );
                }
             }
+            */
 
             if ( $status == "EXPIRED" ) $html .= "<div class='row'>";
             else $html .= "<div class='row ".$rowBG."' onclick='classDetails ( ".$cart [ 'classID' ]." )'>";
@@ -854,7 +986,7 @@
             $html .= "</div>";	// End Row
          }
          $html .= "<div class='row'>";
-         $html .= "<div class='col-md-offset-5 col-md-4' style='font-weight:bold;'>Unpaid total $".$total."</div>";
+         $html .= "<div class='col-md-offset-5 col-md-4' style='font-weight:bold;'>Unpaid total $".$balance."</div>";
          //if ( $total != 0 ) $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
          $html .= "<div class='col-md-2'><button class='btn btn-primary' onclick='checkout ( ".$total." )'><span class='glyphicon glyphicon-log-out'></span> Checkout</button></div>";
 
