@@ -67,6 +67,7 @@
       {
          obj = new Object();
          obj.action = "ADDFAMILY";
+         childConfirmed = false;
 
          $.post ( "classFunctions.php" , obj , function ( data ) {
             decode ( data );
@@ -161,9 +162,8 @@
          if ( countdown.getSeconds () == 0 && countdown.getMinutes() == 0 )
          {
             clockRunning = false;
-
             $ ( "#clock" ).html ( "" );
-            home();
+            setTimeout ( home , 2000 );
          }
          $ ( "#clock" ).html ( countdown.getMinutes() + ":" + countdown.getSeconds().pad() + " minutes left to pay" );
       }
@@ -259,6 +259,16 @@
          obj.action = "PROCESSADDADULT";
          obj.name = $ ( "#adultName" ).val();
          obj.relation = $ ( "#relation" ).val();
+
+         $.post ( "classFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function resetFilter()
+      {
+         obj = new Object();
+         obj.action = "RESETFILTER";
 
          $.post ( "classFunctions.php" , obj , function ( data ) {
             decode ( data );

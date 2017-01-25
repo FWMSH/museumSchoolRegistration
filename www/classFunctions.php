@@ -23,6 +23,7 @@
             case "REMOVEADULT":$this->removeAdult();break;
             case "ADDADULT":$this->addAdult();break;
             case "PROCESSADDADULT":$this->processAddAdult();break;
+            case "RESETFILTER":$this->resetFilter();break;
          }
       }
 
@@ -315,6 +316,19 @@
          $this->home();
       }
 
+      function resetFilter()
+      {
+         $this->checkLogin();
+
+         unset ( $_SESSION [ 'childFilter' ] );
+         unset ( $_SESSION [ 'ageFilter' ] );
+         unset ( $_SESSION [ 'dayFilter' ] );
+         unset ( $_SESSION [ 'classFilter' ] );
+
+         $this->responseScript ( "home()" );
+         $this->send();
+      }
+
       function catalog()
       {
          $this->checkLogin();
@@ -336,7 +350,7 @@
                $today = new DateTime ( "now" );
                $age = $today->diff ( $bday );
 
-               $_SESSION [ 'childFilter' ][] = array ( "name"=>$child [ 'childName' ] , "bday"=>$bday , "childID"=>$child [ 'ID' ] , "selected"=>true );
+               $_SESSION [ 'childFilter' ][] = array ( "name"=>$child [ 'childName' ] , "bday"=>$bday , "childID"=>$child [ 'ID' ] , "selected"=>false );
                $_SESSION [ 'ageFilter' ][] = array ( "age"=>$age->format ( "%y" ) , "selected"=>true );
             }
          }
@@ -354,13 +368,13 @@
 
          if ( !isset ( $_SESSION [ 'dayFilter' ] ) )
          {
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"SUNDAY" , "selected"=>true );
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"MONDAY" , "selected"=>true );
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"TUESDAY" , "selected"=>true );
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"WEDNESDAY" , "selected"=>true );
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"THURSDAY" , "selected"=>true );
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"FRIDAY" , "selected"=>true );
-            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"SATURDAY" , "selected"=>true );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"SUNDAY" , "selected"=>false );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"MONDAY" , "selected"=>false );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"TUESDAY" , "selected"=>false );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"WEDNESDAY" , "selected"=>false );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"THURSDAY" , "selected"=>false );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"FRIDAY" , "selected"=>false );
+            $_SESSION [ 'dayFilter' ][] = array ( "day"=>"SATURDAY" , "selected"=>false );
          }
 
          $sql = "SELECT * FROM `classes` WHERE `classType` = 'CLASS'";
@@ -402,7 +416,9 @@
             $catalog .= "</div>";	// End Checkbox
          }
          $catalog .= "</div>";	// End Column
-
+         $catalog .= "<div class='col-md-2'><b>Reset Filters</b><br>";
+         $catalog .= "<input type='button' class='btn btn-primary' onclick='resetFilter()' value='Reset Filters'>";
+         $catalog .= "</div>";
          $catalog .= "</div>";	// End Row
 
          $catalog .= "<div class='row'>";
@@ -953,6 +969,12 @@
 
             while ( $payment = $payQuery->fetch ( PDO::FETCH_ASSOC ) )
             {
+               $sql = "SELECT * FROM `registration` WHERE `ID` = ? AND `expirationTime` > NOW()";
+               $expireQuery = $this->db->prepare ( $sql );
+               $expireQuery->bindValue ( 1 , $payment [ 'registrationID' ] , PDO::PARAM_INT );
+               $expireQuery->execute();
+               if ( $expireQuery->rowCount() == 0 ) continue;
+ 
                if ( $payment [ 'type' ] == 'DEPOSIT' || $payment [ 'type' ] == 'FULLPAY' || $payment [ 'type' ] == 'PAYMENT' )
                {
                   if ( $payment [ 'status' ] != "PAID" ) continue;
@@ -999,7 +1021,7 @@
       {
          $this->checkLogin();
 
-         $sql = "SELECT * FROM `registration` WHERE `ID` = ?";
+         $sql = "SELECT * FROM `paymentItems` WHERE `registrationID` = ?";
          $query = $this->db->prepare ( $sql );
          $query->bindValue ( 1 , $_POST [ 'reservationID' ] , PDO::PARAM_INT );
          $query->execute();
@@ -1009,12 +1031,12 @@
          {
             if ( $_POST [ 'confirm' ] == 0 )
             {
-               if ( $reservation [ 'status' ] == "PAID" || $reservation [ 'status' ] == "PAIDHALF" && $_POST [ 'confirm' ] == 0 )
+               if ( $reservation [ 'status' ] == "PAID" || $reservation [ 'status' ] == "PAIDHALF" || $reservation [ 'status' ] == "FULLPAY" && $_POST [ 'confirm' ] == 0 )
                {
                   $title = "<h4>Drop Class</h4>";
                   $html = "<h1>Refund policy goes here</h1>";
                   $buttons = "<button type=\"button\" class=\"btn btn-default\" data-dismiss=\"modal\">Cancel</button>";
-                  $buttons .= "<button type=\"button\" class=\"btn btn-danger\" onclick='drop ( ".$reservation [ 'ID' ]." , true )'>Drop Class</button>";
+                  $buttons .= "<button type=\"button\" class=\"btn btn-danger\" onclick='drop ( ".$reservation [ 'registrationID' ]." , true )'>Drop Class</button>";
 
                   $this->responseHTML ( "modalTitle" , $title );
                   $this->responseHTML ( "modalBody" , $html );
@@ -1029,6 +1051,49 @@
             $query = $this->db->prepare ( $sql );
             $query->bindValue ( 1 , $_POST [ 'reservationID' ] , PDO::PARAM_INT );
             $query->execute();
+
+            $sql = "SELECT * FROM `registration` WHERE `userID` = ?";
+            $query = $this->db->prepare ( $sql );
+            $query->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+            $query->execute();
+
+            while ( $registration = $query->fetch ( PDO::FETCH_ASSOC ) )
+            {
+               $sql = "SELECT * FROM `classes` WHERE `ID` = ?";
+               $classQuery = $this->db->prepare ( $sql );
+               $classQuery->bindValue ( 1 , $registration [ 'classID' ] , PDO::PARAM_INT );
+               $classQuery->execute();
+               $class = $classQuery->fetch ( PDO::FETCH_ASSOC );
+
+               if ( $class [ 'classType' ] == "ADDON" )
+               {
+                  $addonID = $registration [ 'ID' ];
+                  $co = explode ( "," , $class [ 'coRequisites' ] );
+                  $sql = "SELECT * FROM `registration` WHERE `userID` = ? and `classID` = ?";
+                  $checkQuery = $this->db->prepare ( $sql );
+
+                  $coSatisfied = False;
+                  foreach ( $co AS $id )
+                  {
+                     $checkQuery->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
+                     $checkQuery->bindValue ( 2 , $id , PDO::PARAM_INT );
+                     $checkQuery->execute();
+
+                     if ( $checkQuery->rowCount() > 0 )
+                     {
+                        $coSatisfied = True;
+                        break;
+                     }
+                  }
+                  if ( $coSatisfied == False )
+                  {
+                     $sql = "DELETE FROM `registration` WHERE `ID` = ? LIMIT 1";
+                     $query = $this->db->prepare ( $sql );
+                     $query->bindValue ( 1 , $addonID , PDO::PARAM_INT );
+                     $query->execute();  
+                  }
+               }
+            }
          }
 
          $this->home();
@@ -1052,6 +1117,12 @@
 
          while ( $item = $query->fetch ( PDO::FETCH_ASSOC ) )
          {
+            $sql = "SELECT * FROM `registration` WHERE `ID` = ? AND `expirationTime` > NOW()";
+            $expireQuery = $this->db->prepare ( $sql );
+            $expireQuery->bindValue ( 1 , $item [ 'registrationID' ] , PDO::PARAM_INT );
+            $expireQuery->execute();
+            if ( $expireQuery->rowCount() == 0 ) continue;
+
             if ( $item [ 'type' ] == "CLASS" || $item [ 'type' ] == "ADDON" ) $total += intval ( $item [ 'amount' ] );
             else if ( $item [ 'type' ] == "DEPOSIT" || $item [ 'type' ] == "FULLPAY" || $item [ 'type' ] == "PAYMENT" ) $total -= intval ( $item [ 'amount' ] );
 
