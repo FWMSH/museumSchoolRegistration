@@ -67,6 +67,12 @@
             $this->responseScript ( "window.location=\"login.html\"" );
             $this->send();
          }
+         if ( $_SESSION [ 'ID' ] == 0 )
+         {
+            unset ( $_SESSION [ 'ID' ] );
+            $this->responseScript ( "window.location=\"login.html\"" );
+            $this->send();
+         }
       }
 
       function start()
@@ -163,6 +169,7 @@ carousel;
       {
          session_start();
 
+         unset ( $_SESSION [ 'childFilter' ] );
          if ( !isset ( $_SESSION [ 'childFilter' ] ) && isset ( $_SESSION [ 'ID' ] ) )
          {
             $sql = "SELECT * FROM `children` WHERE `parentID` = ?";
@@ -220,7 +227,12 @@ carousel;
          $html .= "</div>";
          $html .= "<div class='row'>";
          $html .= "<div class='row-height'>";
-         $html .= "<div class='col-md-2 col-height' style='border:2px blue solid;font-family:Gotham;font-weight:bold;text-align:center;'></div>";
+         $html .= "<div class='col-md-2 col-height' style='border:2px blue solid;font-family:Gotham;font-weight:bold;text-align:center;'>";
+         $html .= "<div style='position:relative;width:100%;background-color:rgb(0,103,177);font-family:Gotham;color:white;'>My Classes</div>";
+         $html .= "<div style='position:relative;width:100%;background-color:rgb(238,53,36);font-family:Gotham;'>Full Classes</div>";
+         $html .= "<div style='position:relative;width:100%;background-color:rgb(30,30,30);font-family:Gotham;color:white;'>No Eligible Students</div>";
+
+         $html .= "</div>";
 
          $classesShown = array();
          while ( $dt = $classDates->fetch ( PDO::FETCH_ASSOC ) )
@@ -272,13 +284,13 @@ carousel;
             }
             else $skipString = "";
 
-            $column = "<div style='font-size:6pt;font-weight:bold;color:white;'>".$meetDays [ 0 ]."-".$meetDays [ sizeof ( $meetDays ) - 1 ].$skipString."</div>";
+            $column = "<div style='font-size:10pt;font-weight:bold;color:white;'>".$meetDays [ 0 ]."-".$meetDays [ sizeof ( $meetDays ) - 1 ].$skipString."</div>";
             $column .= "<div style='font-weight:bold;color:white;'>";
             if ( $start->format ( "m" ) == $end->format ( "m" ) ) $column .= $start->format ( "M j-" ).$end->format ( "j" ).$exception;
             else $column .= $start->format ( "M j-" ).$end->format ( "M j" ).$exception;
             $column .= "</div>";
 
-            $html .= "<div class='col-md-1 col-height' style='background-color:rgb(219,9,98);margin-left:2px;margin-right:2px;border:2px white solid;text-align:center;font-family:Gotham Book'>";
+            $html .= "<div class='col-md-1 col-height' style='background-color:rgb(219,9,98);margin-left:2px;margin-right:2px;border:2px white solid;text-align:center;font-family:Gotham Book;font-size:12pt;'>";
             $html .= $column;
             $html .= "</div>";
          }
@@ -306,9 +318,9 @@ carousel;
             $cutoff = DateTime::createFromFormat ( "Y-m-d" , $class [ 'ageCutoff' ] )->format ( "M jS, Y" );
             $row = "<div class='row' style='background-color:blue;'>";
             $row .= "<div class='row-height'>";
-            $row .= "<div class='col-md-2 col-height col-middle' style='background-color:".$colors [ $ages [ 'Age' ] ]."; border:2px blue solid;font-family:Gotham;'>";
+            $row .= "<div class='col-md-2 col-height col-middle' style='background-color:".$colors [ $ages [ 'Age' ] ]."; border:2px blue solid;font-family:Gotham;font-size:12pt;'>";
             $row .= "<div style='font-weight:bold;text-align:center;color:blue;background-color:".$colors [ $ages [ 'Age' ] ].";'>";
-            $row .= $ageText."<div style='font-weight:normal;font-style:italic;font-size:6pt;'>(by ".$cutoff.")</div>";
+            $row .= $ageText."<div style='font-weight:normal;font-style:italic;font-size:10pt;'>(by ".$cutoff.")</div>";
             //$row .= "<div style='font-weight:normal;font-style:italic;font-size:6pt;'>$".$class [ 'Cost' ]." per each 4 day session"."</div>";
             $row .= "</div>";
             $row .= "</div>";	// End Column
@@ -323,13 +335,39 @@ carousel;
                $query->bindValue ( 3 , $ages [ 'Age' ] , PDO::PARAM_STR );
                $query->execute();
 
-               $row .= "<div class='col-md-1 col-height' style='background-color:white;margin-left:2px;margin-right:2px;border:2px blue solid;text-align:center;font-family:Gotham;'>";
+               $row .= "<div class='col-md-1 col-height' style='background-color:white;margin-left:2px;margin-right:2px;border:2px blue solid;text-align:center;font-family:Gotham;font-size:10pt;'>";
                while ( $gridClass = $query->fetch ( PDO::FETCH_ASSOC ) )
                {
+
+         $allAges = explode ( "," , $gridClass [ 'Age' ] );
+         $eligible = array();
+
+         foreach ( $allAges AS $key=>$age )
+         {
+            $allAges [ $key ] = intval ( $age );
+         }
+
+         if ( $class [ 'classType' ] == "CLASS" )
+         {
+            foreach ( $_SESSION [ 'childFilter' ] AS $key=>$child )
+            {
+               $cutoff = DateTime::createFromFormat ( "Y-m-d" , $class [ 'ageCutoff' ] );
+               $age = abs ( intval ( $cutoff->diff ( $child [ 'bday' ] )->format ( "%y" ) ) );
+
+               if ( in_array ( $age , $allAges ) == true )
+               {
+                  $showClass = true;
+                  if ( !in_array ( $child , $eligible ) ) $eligible[] = $child;
+               }
+            }
+         }
+
                   if ( in_array ( $gridClass [ 'ID' ] , $classesShown ) === True ) continue;
                   $classesShown[] = $gridClass [ 'ID' ];
 
                   $bg = "";
+
+                  if ( sizeof ( $eligible ) == 0 ) $bg = "style='background-color:rgb(30,30,30);color:white;'";
 
                   $sql = "SELECT * FROM `registration` WHERE `classID` = ? AND `expirationTime` > NOW()";
                   $spaceQuery = $this->db->prepare ( $sql );
@@ -373,9 +411,9 @@ carousel;
                   $endTime = DateTime::CreateFromFormat ( "H:i:s" , $gridClass [ 'EndTime' ] )->format ( "g:ia" );
 
                   $row .= "<div onMouseOver=\"$ ( this ).addClass ( 'highlight' );\" onMouseOut=\"$ ( this ).removeClass ( 'highlight' );\" ".$bg.">";
-                  $row .= "<div style='font-size:8pt;'>".$startTime." - ".$endTime."</div>";
-                  $row .= "<div style='font-size:8pt;font-weight:bold;' onclick='classDetails ( ".$gridClass [ 'ID' ]." )'>".$gridClass [ 'ClassName' ]."</div>";
-                  $row .= "<div style='font-size:8pt;font-weight:normal;'>$".$gridClass [ 'Cost' ]."</div><br>";
+                  $row .= "<div style='font-size:10pt;'>".$startTime." - ".$endTime."</div>";
+                  $row .= "<div style='font-size:10pt;font-weight:bold;' onclick='classDetails ( ".$gridClass [ 'ID' ]." )'>".$gridClass [ 'ClassName' ]."</div>";
+                  $row .= "<div style='font-size:10pt;font-weight:normal;'>$".$gridClass [ 'Cost' ]."</div><br>";
                   $row .= "</div>";
                }
                $row .= "</div>";
@@ -504,8 +542,8 @@ carousel;
          if ( isset ( $_POST [ 'childName' ] ) ) $childName = $_POST [ 'childName' ];
          if ( isset ( $_POST [ 'gender' ] ) )
          {
-            if ( $_POST [ 'gender' ] = "MALE" ) $maleSelected = "selected";
-            if ( $_POST [ 'gender' ] = "FEMALE" ) $femaleSelected = "selected";
+            if ( $_POST [ 'gender' ] == "MALE" ) $maleSelected = "checked";
+            if ( $_POST [ 'gender' ] == "FEMALE" ) $femaleSelected = "checked";
          }
          if ( isset ( $_POST [ 'birthday' ] ) ) $birthday = $_POST [ 'birthday' ];
 
@@ -632,7 +670,6 @@ carousel;
          $this->checkLogin();
 
          $message = "<div class='alert alert-info' role='alert'>";
-         $message .= "  Please double check all information and check all 3 correct boxes.  Once submitted child info can not be changed.";
          $message .= "</div>";
 
          if ( !isset ( $_POST [ 'confirmed' ] ) )
@@ -652,8 +689,8 @@ carousel;
          $query->bindValue ( ":birthday" , $_POST [ 'birthday' ] , PDO::PARAM_STR );
          $query->execute();
 
-         $this->responseScript ( "$ ( \"#modal\" ).modal ( \"hide\" );" );
-         $this->home();
+         //$this->responseScript ( "$ ( \"#modal\" ).modal ( \"hide\" );" );
+         //$this->home();
       }
 
       function resetFilter()
@@ -942,7 +979,7 @@ carousel;
          } 
 
          //$sql = "SELECT * FROM `registration` WHERE `userID` = ? AND `classID` = ? AND ( `expirationTime` > NOW() OR `status` = 'PAID' OR `status` = 'PAIDHALF' )";
-         $sql = "SELECT * FROM `registration` WHERE `userID` = ? AND `classID` = ?";
+         $sql = "SELECT registration.* , paymentItems.status AS payStatus FROM `registration` INNER JOIN paymentItems ON paymentItems.registrationID = registration.ID WHERE registration.userID = ? AND classID = ?";
 
          $enrolledQuery = $this->db->prepare ( $sql );
          $enrolledQuery->bindValue ( 1 , $_SESSION [ 'ID' ] , PDO::PARAM_INT );
@@ -977,7 +1014,7 @@ carousel;
                   $children .= "  This class was selected for ".$child [ 'childName' ]." but was not paid for within the 30 minute window.  If there is still room you can enroll again.";
                   $children .= "</div>";
                }
-               else if ( $registration [ 'status' ] == "PAID" )
+               else if ( $registration [ 'payStatus' ] == "PAID" )
                {
                   $enrolled = True;
                   $children .= "<div class='alert alert-success alert-dismissible' role='alert'>";
@@ -985,7 +1022,7 @@ carousel;
                   $children .= "  ".$child [ 'childName' ]." is enrolled in this class!".$paid;
                   $children .= "</div>";
                }
-               else if ( $registration [ 'status' ] == "NOT PAID" )
+               else if ( $registration [ 'payStatus' ] == "NOT PAID" )
                {
                   $enrolled = True;
                   $children .= "<div class='alert alert-info alert-dismissible' role='alert'>";
@@ -1059,9 +1096,12 @@ carousel;
          $html .= "<div class='col-md-8'>".str_replace ( "\n" , "<br>" , $class [ 'noClassDates' ] )."</div>";
          $html .= "</div>";	// End Row
 
+         $startTime = DateTime::createFromFormat ( "H:i:s" , $class [ 'StartTime' ] )->format ( "G:i a" );
+         $endTime = DateTime::createFromFormat ( "H:i:s" , $class [ 'EndTime' ] )->format ( "G:i a" );
+
          $html .= "<div class='row'>";
          $html .= "<div class='col-md-4' style='font-weight:bold;'>Times</div>";
-         $html .= "<div class='col-md-8'>".$class [ 'StartTime' ]." to ".$class [ 'EndTime' ]."</div>";
+         $html .= "<div class='col-md-8'>".$startTime." to ".$endTime."</div>";
          $html .= "</div>";	// End Row
 
          $html .= "<div class='row'>";
@@ -1814,6 +1854,11 @@ html;
             $this->responseScript ( "window.location = \"grid.html\"" );
             $this->send();
          }
+         else
+         {
+            $this->responseHTML ( "message" , "<div style='color:red;'>Sorry, your username and/or password doesn't match!</div>" );
+            $this->send();
+         }
       }
 
       function logout()
@@ -1824,6 +1869,7 @@ html;
          {
             unset ( $_SESSION [ $key ] );
          }
+         session_destroy();
 
          $this->responseScript ( "start()" );
          $this->send();

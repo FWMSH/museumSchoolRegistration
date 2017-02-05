@@ -8,6 +8,7 @@
 
     <!-- Bootstrap -->
     <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="stylesheet.css">
 
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -19,6 +20,8 @@
     <script src="md5/js/md5.min.js"></script>
     <script>
       var detailID = null;
+      var validation = true;
+      var validationMessage = "";
 
       function decode ( json )
       {
@@ -33,6 +36,18 @@
          }
       }
 
+      function resetValidation()
+      {
+         validationMessage = "Please correct the following problems with the form:<ul>";
+      }
+
+      function errorMessage ( msg )
+      {
+         validationMessage += "<li>" + msg;
+         $ ( "#registrationMessage" ).html ( "<div class='bg-danger' style='font-weight:bold;'>" + validationMessage + "</li></div>" );
+         validation = false;
+      }
+
       function register()
       {
          if ( $ ( "#password1" ).val() != $ ( "#password2" ).val() )
@@ -41,26 +56,208 @@
             return;
          }
 
+         validation = true;
+         resetValidation();
+
          obj = new Object();
          obj.action = "REGISTER";
          obj.firstName = $ ( "#firstName" ).val();
+         if ( obj.firstName.trim() == "" ) errorMessage ( "First name is required<br>" );
          obj.lastName = $ ( "#lastName" ).val();
+         if ( obj.lastName.trim() == "" ) errorMessage ( "Last name is required<br>" );
          obj.email = $ ( "#email" ).val();
+         if ( obj.email.trim() == "" ) errorMessage ( "Email is required<br>" );
+
+         obj.relationship = $ ( "#relationship" ).val();
+         if ( obj.relationship.trim() == "" ) errorMessage ( "Family Relationship is required<br>" );
          obj.address = $ ( "#address" ).val();
+         if ( obj.address.trim() == "" ) errorMessage ( "Address is required<br>" );
          obj.city = $ ( "#city" ).val();
+         if ( obj.city.trim() == "" ) errorMessage ( "City is required<br>" );
          obj.state = $ ( "#state" ).val();
          obj.zip = $ ( "#zip" ).val();
+         if ( obj.zip.trim() == "" ) errorMessage ( "Zip is required<br>" );
+
+         phoneCount = 0
          obj.homePhone = $ ( "#homePhone" ).val();
+         if ( obj.homePhone.trim() != "" ) phoneCount += 1;
          obj.workPhone = $ ( "#workPhone" ).val();
+         if ( obj.workPhone.trim() != "" ) phoneCount += 1;
          obj.cellPhone = $ ( "#cellPhone" ).val();
-         obj.text = $ ( "#textsOK" ).val();
+         if ( obj.cellPhone.trim() != "" ) phoneCount += 1;
+         if ( phoneCount == 0 ) errorMessage ( "At least one phone number is required<br>" );
+         if ( $ ( "#password1" ).val().trim() == "" ) errorMessage ( "Password can't be blank!<br>" );
          obj.password = md5 ( $ ( "#password1" ).val() );
 
+         if ( validation == false ) return;
          $.post ( "registrationFunctions.php" , obj , function ( data ) {
             decode ( data );
          } );         
       }
 
+      function addFamily()
+      {
+         obj = new Object();
+         obj.action = "ADDFAMILY";
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );         
+
+      }
+
+      function processAddFamily()
+      {
+         obj = new Object();
+         obj.action = "PROCESSADDFAMILY";
+         obj.childName = $ ( "#childName" ).val();
+         obj.childLast = $ ( "#childLastName" ).val();
+         obj.gender = $ ( "input[name=gender]:checked" ).val();
+         obj.birthday = $ ( "#year" ).val() + "-" + $ ( "#month" ).val() + "-" + $ ( "#day" ).val();
+         obj.confirmed = false;
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+
+      }
+
+      function editChild ( childID )
+      {
+         obj = new Object();
+         obj.action = "EDITCHILD";
+         obj.childID = childID;
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+
+      }
+
+      function processEditChild ( childID )
+      {
+         obj = new Object();
+         obj.action = "PROCESSEDITCHILD";
+         obj.childID = childID;
+         obj.childName = $ ( "#childName" ).val();
+         obj.childLast = $ ( "#childLastName" ).val();
+         obj.gender = $ ( "input[name=gender]:checked" ).val();
+         obj.birthday = $ ( "#year" ).val() + "-" + $ ( "#month" ).val() + "-" + $ ( "#day" ).val();
+         obj.confirmed = false;
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+
+      }
+
+      function removeFamily ( childID )
+      {
+         obj = new Object();
+         obj.action = "REMOVECHILD";
+         obj.childID = childID;
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function family()
+      {
+         obj = new Object();
+         obj.action = "FAMILY";
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+
+      }
+
+      function removeAdult ( ID , confirmRemove )
+      {
+         obj = new Object();
+         obj.action = "REMOVEADULT";
+         obj.adultID = ID;
+         if ( confirmRemove == 1 ) obj.confirm = confirmRemove;
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function addAdult()
+      {
+         obj = new Object();
+         obj.action = "ADDADULT";
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function processAddAdult()
+      {
+         obj = new Object();
+         obj.action = "PROCESSADDADULT";
+         obj.name = $ ( "#adultName" ).val();
+         obj.relation = $ ( "#relationship" ).val();
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function checkLogin()
+      {
+         obj = new Object();
+         obj.action = "CHECKLOGIN";
+
+         $.post ( "registrationFunctions.php" , obj , function ( data ) {
+            decode ( data );
+         } );
+      }
+
+      function setDays ( month )
+      {
+         switch ( parseInt ( month ) )
+         {
+            case 1:
+            case 3:
+            case 5:
+            case 7:
+            case 8:
+            case 10:
+            case 12:
+            {
+               $ ( "#day").children().remove().end();
+               for ( i = 0 ; i < 31 ; i ++ )
+               {
+                  $ ( "#day" ).append ( "<option value='" + ( i + 1 ) + "'>" + ( i + 1 ) + "</option>" );
+               }
+            }
+            break;
+            case 4:
+            case 6:
+            case 9:
+            case 11:
+            {
+               $ ( "#day").children().remove().end();
+               for ( i = 0 ; i < 30 ; i ++ )
+               {
+                  $ ( "#day" ).append ( "<option value='" + ( i + 1 ) + "'>" + ( i + 1 ) + "</option>" );
+               }
+            }
+            break;
+            case 2:
+            {
+               $ ( "#day").children().remove().end();
+               for ( i = 0 ; i < 29 ; i ++ )
+               {
+                  $ ( "#day" ).append ( "<option value='" + ( i + 1 ) + "'>" + ( i + 1 ) + "</option>" );
+               }
+            }
+         }
+      }
     </script>
 
     <style>
@@ -94,50 +291,126 @@
        }
     </style>
   </head>
-  <body id='body'> 
+  <body style='font-family:Gotham;' onload='checkLogin()'> 
+    <div id='body' style='position:absolute;width:100%;height:100%;left:0px;top:0px;'>
     <h1>New User Registration</h1>
-    <div class='well'>Welcome to the Museum School class registration website!  Please register below with <b>your</b> info.  You'll add children after you login</div>
+    <div class='well'>Welcome to the Museum School class registration website!  Please register below with <b>your</b> info.  You'll add children and family members in the next step.</div>
     <div class='container-fluid'>
        <h4>Contact Info</h4>
        <div class='row'>
-          <div class='col-md-2'>First name<br><input type='text' id='firstName' class='form-control'></div>
-          <div class='col-md-2'>Last name<br><input type='text' id='lastName' class='form-control'></div>
-          <div class='col-md-2'>E-Mail<br><input type='email' id='email' class='form-control'></div>
+          <div class='col-md-2'>First name *<br><input type='text' id='firstName' class='form-control'></div>
+          <div class='col-md-2'>Last name *<br><input type='text' id='lastName' class='form-control'></div>
+          <div class='col-md-2'>E-Mail / Username *<br><input type='email' id='email' class='form-control'></div>
+       </div>
+       <h4>Family Relationship</h4>
+       <div class='row'>
+          <div class='col-md-2'>
+             Relationship *<br>(Mother, Father, Uncle, etc.)<br>
+             <input type='text' id='relationship' class='form-control'>
+          </div>
        </div>
        <h4>Address</h4>
        <div class='row'>
-          <div class='col-md-6'>Address<br><input type='text' id='address' class='form-control'></div>
+          <div class='col-md-6'>Address *<br><input type='text' id='address' class='form-control'></div>
        </div>
        <div class='row'>
-          <div class='col-md-2'>City<br><input type='text' id='city' class='form-control'></div>
-          <div class='col-md-2'>State<br><input type='text' id='state' class='form-control'></div>
-          <div class='col-md-2'>Zip<br><input type='text' id='zip' class='form-control'></div>
+          <div class='col-md-2'>City *<br><input type='text' id='city' class='form-control'></div>
+          <div class='col-md-2'>State *<br>
+          <SELECT name='state' id='state'>
+             <OPTION value='AL'>Alabama</OPTION>
+             <OPTION value='AK'>Alaska</OPTION>
+             <OPTION value='AZ'>Arizona</OPTION>
+             <OPTION value='AR'>Arkansas</OPTION>
+             <OPTION value='CA'>California</OPTION>
+             <OPTION value='CO'>Colorado</OPTION>
+             <OPTION value='CT'>Connecticut</OPTION>
+             <OPTION value='DE'>Delaware</OPTION>
+             <OPTION value='FL'>Florida</OPTION>
+             <OPTION value='GA'>Georgia</OPTION>
+             <OPTION value='HI'>Hawaii</OPTION>
+             <OPTION value='ID'>Idaho</OPTION>
+             <OPTION value='IL'>Illinois</OPTION>
+             <OPTION value='IN'>Indiana</OPTION>
+             <OPTION value='IA'>Iowa</OPTION>
+             <OPTION value='KS'>Kansas</OPTION>
+             <OPTION value='KY'>Kentucky</OPTION>
+             <OPTION value='LA'>Louisiana</OPTION>
+             <OPTION value='ME'>Maine</OPTION>
+             <OPTION value='MD'>Maryland</OPTION>
+             <OPTION value='MA'>Massachusetts</OPTION>
+             <OPTION value='MI'>Michigan</OPTION>
+             <OPTION value='MN'>Minnesota</OPTION>
+             <OPTION value='MS'>Mississippi</OPTION>
+             <OPTION value='MO'>Missouri</OPTION>
+             <OPTION value='MT'>Montana</OPTION>
+             <OPTION value='NE'>Nebraska</OPTION>
+             <OPTION value='NV'>Nevada</OPTION>
+             <OPTION value='NH'>New Hampshire</OPTION>
+             <OPTION value='NJ'>New Jersey</OPTION>
+             <OPTION value='NM'>New Mexico</OPTION>
+             <OPTION value='NY'>New York</OPTION>
+             <OPTION value='NC'>North Carolina</OPTION>
+             <OPTION value='ND'>North Dakota</OPTION>
+             <OPTION value='OH'>Ohio</OPTION>
+             <OPTION value='OK'>Oklahoma</OPTION>
+             <OPTION value='OR'>Oregon</OPTION>
+             <OPTION value='PA'>Pennsylvania</OPTION>
+             <OPTION value='RI'>Rhode Island</OPTION>
+             <OPTION value='SC'>South Carolina</OPTION>
+             <OPTION value='SD'>South Dakota</OPTION>
+             <OPTION value='TN'>Tennessee</OPTION>
+             <OPTION value='TX'>Texas</OPTION>
+             <OPTION value='UT'>Utah</OPTION>
+             <OPTION value='VT'>Vermont</OPTION>
+             <OPTION value='VA'>Virginia</OPTION>
+             <OPTION value='WA'>Washington</OPTION>
+             <OPTION value='WV'>West Virginia</OPTION>
+             <OPTION value='WI'>Wisconsin</OPTION>
+             <OPTION value='WY'>Wyoming</OPTION>
+          </SELECT>
+          </div>
+          <div class='col-md-2'>Zip *<br><input type='text' id='zip' class='form-control'></div>
        </div>
-       <h4>Phone Numbers</h4>
+       <h4>Phone Numbers (any 1 required)</h4>
        <div class='row'>
           <div class='col-md-2'>Home Phone<br><input type='phone' id='homePhone' class='form-control'></div>
           <div class='col-md-2'>Work Phone<br><input type='phone' id='workPhone' class='form-control'></div>
-          <div class='col-md-2'>Cell Phone<br><input type='phone' id='cellPhone' class='form-control'><br>
-             <div class='checkbox'>
-                <label>
-                   <input type='checkbox' id='textsOK' value='1'>
-                   Texts are OK
-                </label>
-             </div>
-          </div>
+          <div class='col-md-2'>Cell Phone<br><input type='phone' id='cellPhone' class='form-control'></div>
        </div>
        <h4>Password</h4>
        <div class='row'>
-          <div class='col-md-3'>Select a password<br><input type='password' id='password1' class='form-control'></div>
-          <div class='col-md-3'>Confirm password<br><input type='password' id='password2' class='form-control'></div>
+          <div class='col-md-3'>Select a password *<br><input type='password' id='password1' class='form-control'></div>
+          <div class='col-md-3'>Confirm password *<br><input type='password' id='password2' class='form-control'></div>
        </div>
-       <h4>Finish</h4>
+       <h4>Create Account</h4>
+       All fields with * are required.
+       <div class='row'>
+          <div id='registrationMessage' class='col-md-12'>&nbsp;</div>
+       </div>
        <div class='row'>
           <div class='col-md-6'><button class='btn btn-primary btn-large' onclick='register()'>Register</button></div>
        </div>
       
 
     </div>
+    </div>	<!-- End Body (really a div) -->
+    <div class="modal fade" style='font-family:Gotham;' tabindex="-1" role="dialog" id='modal'>
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id='modalTitle'>Modal title</h4>
+          </div>
+          <div class="modal-body" id='modalBody'>
+          </div>
+          <div class="modal-footer" id='modalFooter'>
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary">Save changes</button>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
